@@ -28,18 +28,24 @@ The project combines basic **time-series forecasting** and **news sentiment anal
 - News headlines from free online sources (Investing.com RSS, NewsAPI, or Reuters).  
 
 ### **Data Preparation**
-- Align price and news data by date.  
-- Convert news headlines into a simple **sentiment score** (positive, negative, neutral) using tools like **VADER** or a lightweight model such as **FinBERT**.  
+- Align price and news data by date, being careful to **avoid lookahead bias** (e.g. news published late in the evening should not influence same-day prices).  
+- Convert news headlines into a **financial sentiment score** using lightweight open-source models such as **FLANG** ([FinLLMs project](https://github.com/adlnlp/FinLLMs)) or **FinBERT-20**, which are specifically trained on financial text.  
+- Validate sentiment quality separately — check whether positive headlines are generally followed by upward price movements (and vice versa).  
 - Create features from price data — e.g. moving averages, percentage changes, and volatility indicators.  
 
 ### **Modeling**
-- Start with simple **baseline models** like **Prophet** or **XGBoost**.  
-- Then test a small **hybrid model** that includes both numerical and text-based features.  
-- Evaluate how much the inclusion of news sentiment improves the forecast compared to using price data alone.  
+- Use three explicit model types for comparison:  
+  1. **Time-series baseline** (e.g. ARIMA or Prophet) using price-only data.  
+  2. **Machine learning baseline** (e.g. XGBoost) trained only on price-based features.  
+  3. **Hybrid model** combining both numerical and sentiment-derived features in a unified feature matrix.  
+
+  The hybrid model will integrate time-series indicators (returns, volatility, lagged features) together with aggregated sentiment scores over rolling windows.  
+- Evaluate how much the inclusion of sentiment improves the forecast compared to using price data alone.  
 
 ### **Evaluation & Visualization**
+- **Temporal validation** using real chronological splits — e.g. training on 2020–2022 and testing on 2023–2024, or a walk-forward validation scheme.  
 - Metrics: **RMSE** (forecast accuracy) and **directional accuracy** (whether the model predicts the right trend).  
-- Visualizations: forecast plots and feature importance graphs to interpret model behavior.  
+- Visualizations: forecast plots, feature importance graphs, and correlation between sentiment and price movements to interpret model behavior.  
 
 ### **Tools**
 - Python, pandas, NumPy, scikit-learn, matplotlib, seaborn.  
@@ -54,8 +60,8 @@ The project combines basic **time-series forecasting** and **news sentiment anal
 | Aligning news and price data | Use clear date-based merging and filter unrelated news |
 | Limited amount of clean news data | Focus on one or two well-covered commodities (oil, copper) |
 | Overfitting with small data | Use simple models and cross-validation |
-| Measuring impact of news | Compare model performance with and without sentiment features |
-| Local compute limits | Keep models lightweight and datasets small enough for a laptop |
+| Measuring impact of news | Validate sentiment independently and compare model performance with and without sentiment features |
+| Local compute limits | Use lightweight financial NLP models such as **FLANG** or **FinBERT-20**, and run on Colab or Kaggle if needed |
 
 ---
 
@@ -75,4 +81,3 @@ The project combines basic **time-series forecasting** and **news sentiment anal
 - Test how the model reacts to **hypothetical “shock” events**, similar to what traders face during interviews.  
 
 ---
-
