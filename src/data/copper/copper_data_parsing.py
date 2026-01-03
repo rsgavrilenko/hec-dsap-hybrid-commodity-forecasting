@@ -45,7 +45,7 @@ def fetch_copper_data_all_years(url: str = URL) -> pd.DataFrame:
 
     all_rows = []
 
-    # ⬇️ ВАЖНО: на странице несколько таблиц — по одной на каждый год
+    # IMPORTANT: The page contains multiple tables — one for each year
     tables = soup.find_all("table")
 
     if not tables:
@@ -72,7 +72,7 @@ def fetch_copper_data_all_years(url: str = URL) -> pd.DataFrame:
 
     df = pd.DataFrame(all_rows)
 
-    # удалить возможные дубликаты и отсортировать
+    # Remove possible duplicates and sort
     df = (
         df.drop_duplicates(subset=["date"])
           .sort_values("date")

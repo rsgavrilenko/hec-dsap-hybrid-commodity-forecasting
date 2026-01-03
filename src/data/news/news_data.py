@@ -24,7 +24,7 @@ except ImportError:
     print("⚠️  Selenium not available. Install with: pip install selenium")
 
 
-# Расширенный список источников
+# Extended list of news sources
 RSS_SOURCES = {
     "Reuters": (
         "https://news.google.com/rss/search?"
@@ -42,7 +42,7 @@ RSS_SOURCES = {
         "https://news.google.com/rss/search?"
         "q=copper+source:mining.com&hl=en-US&gl=US&ceid=US:en"
     ),
-    # Дополнительные источники
+    # Additional sources
     "WSJ": (
         "https://news.google.com/rss/search?"
         "q=copper+source:wsj.com&hl=en-US&gl=US&ceid=US:en"
@@ -63,7 +63,7 @@ RSS_SOURCES = {
         "https://news.google.com/rss/search?"
         "q=copper+source:metalbulletin.com&hl=en-US&gl=US&ceid=US:en"
     ),
-    # Общий поиск по ключевым словам (может дать больше результатов)
+    # General keyword search (may yield more results)
     "CopperGeneral": (
         "https://news.google.com/rss/search?"
         "q=copper+price+OR+copper+mining+OR+copper+supply+OR+LME+copper&hl=en-US&gl=US&ceid=US:en"
