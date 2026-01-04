@@ -5,10 +5,11 @@ dependencies:
   - python=3.11
   - numpy
   - pandas
-  - scikit-learn
+  - scikit-learn  # Provides 'sklearn' module
   - matplotlib
   - seaborn
   - jupyter
+  - ipykernel
   - pip
   - pip:
       - yfinance
