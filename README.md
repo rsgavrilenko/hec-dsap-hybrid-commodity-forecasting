@@ -38,31 +38,44 @@ This project combines time-series forecasting with news sentiment analysis to pr
    conda activate commodity-forecast
    ```
 
-2. **Start Jupyter Notebook**:
+2. **Run the main pipeline**:
    ```bash
-   jupyter notebook
+   python main.py
    ```
 
-3. **Open the analysis notebook**:
-   - Navigate to `src/data/plain_analysis.ipynb`
-   - Make sure the kernel is set to `Python 3 (commodity-forecast)` or `commodity-forecast`
-   - Run all cells
+   This will:
+   - Load and align price and news data
+   - Create price-based features (moving averages, returns, volatility)
+   - Create news-based features (TF-IDF embeddings + keyword heuristics)
+   - Train baseline (price-only) and hybrid (price + news) models
+   - Compare model performance and show results
+
+3. **Expected output**:
+   - Model comparison table with RMSE, MAE, R², and Directional Accuracy
+   - Winner model identification
+   - Performance improvement metrics
 
 ### Project Structure
 
 ```
 .
+├── main.py                      # Main entry point - run this!
 ├── environment.yml              # Conda environment definition
 ├── README.md                    # This file
+├── PROPOSAL.md                  # Project proposal
 ├── src/
-│   └── data/
-│       ├── data_loader.py       # Unified data loading functions
-│       ├── plain_analysis.ipynb # Main analysis notebook
-│       ├── copper/
-│       │   └── copper_data_parsing.py  # Copper price data parser
-│       └── news/
-│           ├── news_data.py     # News data collection
-│           └── copper_news_all_sources.csv  # Collected news data
+│   ├── data/
+│   │   ├── data_loader.py       # Unified data loading functions
+│   │   ├── copper/
+│   │   │   └── data_copper_lme_all_years.csv  # Copper price data
+│   │   └── news/
+│   │       ├── news_data.py     # News data collection
+│   │       └── copper_news_all_sources.csv  # Collected news data
+│   ├── features/
+│   │   ├── price_features.py     # Price and stock feature creation
+│   │   └── sentiment_features.py # News sentiment and heuristic features
+│   ├── models.py                # Model training functions
+│   └── evaluation.py            # Model evaluation and comparison
 ```
 
 ### Dependencies
