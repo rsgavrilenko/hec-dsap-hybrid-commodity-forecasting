@@ -162,6 +162,7 @@ def align_price_and_news(
     stock_series = None
     if 'lme_copper_stock' in price_df.columns:
         stock_series = price_df['lme_copper_stock'].copy()
+        stock_series.name = 'lme_copper_stock'
 
     # Convert price index to date (remove time component if present)
     price_series.index = pd.to_datetime(price_series.index).normalize()
@@ -237,7 +238,8 @@ def align_price_and_news(
     
     # Add stock if available
     if stock_series is not None:
-        aligned_df = aligned_df.join(stock_series, how='left')
+        stock_df = pd.DataFrame({stock_series.name: stock_series})
+        aligned_df = aligned_df.join(stock_df, how='left')
     
     aligned_df = aligned_df.merge(
         news_agg,
