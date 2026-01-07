@@ -53,9 +53,34 @@ RSS_SOURCES = {
         "https://www.business-standard.com/rss/markets-106.rss"
     ),
     # Google News RSS (works reliably)
+    # Reuters - expanded queries for better coverage
     "Reuters": (
         "https://news.google.com/rss/search?"
         "q=copper+source:reuters&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Reuters_Copper_Price": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+price+OR+LME+copper+OR+copper+futures)+source:reuters&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Reuters_Copper_Mining": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+mining+OR+copper+mine+OR+copper+production)+source:reuters&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Reuters_Copper_Supply": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+supply+OR+copper+demand+OR+copper+inventory)+source:reuters&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Reuters_Commodities": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+OR+metals+OR+commodities)+source:reuters&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Reuters_Chile_Copper": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+Chile+OR+Codelco+OR+Escondida+OR+Collahuasi)+source:reuters&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Reuters_China_Copper": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+China+OR+Chinese+copper+import+OR+Chinese+copper+demand)+source:reuters&hl=en-US&gl=US&ceid=US:en"
     ),
     "Bloomberg": (
         "https://news.google.com/rss/search?"
@@ -68,6 +93,27 @@ RSS_SOURCES = {
     "Mining.com": (
         "https://news.google.com/rss/search?"
         "q=copper+source:mining.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    # Mining.com - expanded queries for better coverage
+    "Mining.com_Copper_News": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+news+OR+copper+price+OR+copper+mining)+source:mining.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Mining.com_Copper_Mines": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+mine+OR+copper+deposit+OR+copper+project)+source:mining.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Mining.com_Copper_Production": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+production+OR+copper+output+OR+copper+capacity)+source:mining.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Mining.com_Major_Mines": (
+        "https://news.google.com/rss/search?"
+        "q=(Escondida+OR+Collahuasi+OR+Cerro+Verde+OR+Grasberg+OR+Antamina+OR+Buenavista)+source:mining.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Mining.com_Miners": (
+        "https://news.google.com/rss/search?"
+        "q=(BHP+OR+Codelco+OR+Freeport+OR+Grupo+Mexico+OR+Glencore+OR+Rio+Tinto)+copper+source:mining.com&hl=en-US&gl=US&ceid=US:en"
     ),
     # Additional sources
     "WSJ": (
@@ -1621,6 +1667,26 @@ def fetch_copper_news_with_variations(max_workers: int = 4) -> pd.DataFrame:
         "copper Peru",
         "copper Congo",
         "copper Zambia",
+        # Reuters-specific queries (high-priority source)
+        "copper price source:reuters",
+        "copper mining source:reuters",
+        "LME copper source:reuters",
+        "copper supply source:reuters",
+        "copper demand source:reuters",
+        "copper futures source:reuters",
+        "copper Chile source:reuters",
+        "copper China source:reuters",
+        "Codelco source:reuters",
+        "BHP copper source:reuters",
+        # Mining.com-specific queries (high-priority source)
+        "copper source:mining.com",
+        "copper mine source:mining.com",
+        "copper production source:mining.com",
+        "copper project source:mining.com",
+        "copper deposit source:mining.com",
+        "Escondida source:mining.com",
+        "Grasberg source:mining.com",
+        "Freeport copper source:mining.com",
     ]
     
     all_records = []
@@ -1741,7 +1807,24 @@ def fetch_copper_news_by_year(year: int, base_queries: Optional[list] = None, ma
         f"copper warehouse {year}",
     ]
     
-    # Strategy 5: Location-based queries (major copper producing regions)
+    # Strategy 5: Reuters and Mining.com specific queries (high-priority sources)
+    reuters_queries = [
+        f"copper {year} source:reuters",
+        f"copper price {year} source:reuters",
+        f"copper mining {year} source:reuters",
+        f"LME copper {year} source:reuters",
+        f"copper Chile {year} source:reuters",
+        f"copper China {year} source:reuters",
+    ]
+    
+    mining_com_queries = [
+        f"copper {year} source:mining.com",
+        f"copper mine {year} source:mining.com",
+        f"copper production {year} source:mining.com",
+        f"copper project {year} source:mining.com",
+    ]
+    
+    # Strategy 6: Location-based queries (major copper producing regions)
     location_queries = [
         f"Chile copper {year}",
         f"Peru copper {year}",
@@ -1768,7 +1851,9 @@ def fetch_copper_news_by_year(year: int, base_queries: Optional[list] = None, ma
     
     all_query_variations = (
         year_queries + 
-        year_range_queries + 
+        year_range_queries +
+        reuters_queries +
+        mining_com_queries + 
         company_queries + 
         event_queries + 
         location_queries +

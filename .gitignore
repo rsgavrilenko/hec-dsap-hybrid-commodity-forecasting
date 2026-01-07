@@ -6,5 +6,15 @@ __pycache__/
 *.pyc
 .venv/
 
-# Data
-data/raw/
+# Jupyter Notebooks
+*.ipynb
+
+# Artifacts (plots, models, etc.)
+artifacts/
+
+# Temporary analysis scripts
+analyze_shock_definitions.py
+src/data/news/classify_news_relevance.py
+
+# OS
+.DS_Store
