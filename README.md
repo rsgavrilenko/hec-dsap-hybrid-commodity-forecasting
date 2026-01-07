@@ -46,14 +46,36 @@ This project combines time-series forecasting with news sentiment analysis to pr
    This will:
    - Load and align price and news data
    - Create price-based features (moving averages, returns, volatility)
-   - Create news-based features (TF-IDF embeddings + keyword heuristics)
-   - Train baseline (price-only) and hybrid (price + news) models
+   - Create news-based features (FinBERT sentiment scores if available, otherwise TF-IDF embeddings + keyword heuristics)
+   - Train baseline (price-only) and hybrid (price + news) models with walk-forward validation
    - Compare model performance and show results
 
 3. **Expected output**:
    - Model comparison table with RMSE, MAE, R², and Directional Accuracy
    - Winner model identification
    - Performance improvement metrics
+   - Saved artifacts in `artifacts/` (plots, metrics CSV, saved models/predictions)
+
+### Target Definition (Important)
+
+The pipeline supports three prediction modes:
+
+1. **Return Prediction** (default): Predicts next-day return
+   - `target_return = price[t+1]/price[t] - 1`
+   - Generally works better for capturing news-driven price movements
+
+2. **Price Prediction**: Predicts next-day price level
+   - `target_price = price[t+1]`
+
+3. **Shock Detection**: Binary classification of extreme price movements
+   - Detects price "shocks" (returns exceeding 2 standard deviations)
+   - Useful for early warning of rare but impactful price spikes
+   - Combines price trends with news sentiment for improved detection
+
+You can switch the target mode in `main.py`:
+- `target_mode = 'return'` (default) - regression
+- `target_mode = 'price'` - regression  
+- `target_mode = 'shock'` - binary classification
 
 ### Project Structure
 
@@ -86,9 +108,26 @@ All dependencies are specified in `environment.yml`:
 - scikit-learn (for machine learning models)
 - matplotlib, seaborn (for visualization)
 - jupyter (for notebooks)
-- yfinance (for financial data, via pip)
+- statsmodels (ARIMA baseline)
+- optional: xgboost, lightgbm (if you set `model_type='xgb'/'lgb'`)
+- optional: shap (if you set `run_shap=True`)
 
 ### Troubleshooting
+**Issue**: `FinBERT sentiment failed` / TF-IDF fallback
+- **Reason**: `transformers` and/or `torch` not installed in your environment.
+- **Fix**:
+  - `pip install transformers torch`
+  - or update the conda env: `conda env update -f environment.yml --prune`
+
+**Issue**: XGBoost/LightGBM not available
+- **Fix**: Install optional deps:
+  - `conda install -c conda-forge xgboost lightgbm`
+
+**Issue**: SHAP not available
+- **Fix**:
+  - `pip install shap`
+  - then set `run_shap=True` in `main.py`
+
 
 **Issue**: `ModuleNotFoundError: No module named 'sklearn'`
 - **Solution**: Make sure you've activated the conda environment: `conda activate commodity-forecast`

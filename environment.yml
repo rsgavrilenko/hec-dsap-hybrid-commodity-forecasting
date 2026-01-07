@@ -12,7 +12,13 @@ dependencies:
   - ipykernel
   - pip
   - statsmodels
+  - xgboost  # Install via conda for better compatibility
+  - lightgbm  # Install via conda for better compatibility
   - pip:
-      - yfinance
       - transformers
       - torch
+      - shap
+      - feedparser
+      - python-dateutil
+      - tabulate
+      - imbalanced-learn
