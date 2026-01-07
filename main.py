@@ -53,11 +53,17 @@ def main():
     print(f"✅ Loaded {len(df)} records")
     print(f"   Date range: {df['date'].min().date()} to {df['date'].max().date()}")
     
+    # Shock definition parameters (adjustable to increase/decrease shock rate)
+    # Defined early so they're available for both feature creation and reporting
+    shock_window = 2  # Number of days for cumulative return (reduced from 3)
+    k_sigma = 1.25  # Threshold in std devs (reduced from 1.5) - lower = more shocks
+    require_same_direction = True  # If False, allows mixed-direction moves (more shocks)
+    
     # Step 2: Create price features
     print("\n" + "="*80)
     print("🔧 Step 2: Creating price features...")
     print("="*80)
-    df = create_price_features(df)
+    df = create_price_features(df, shock_window=shock_window, k_sigma=k_sigma, require_same_direction=require_same_direction)
     print(f"✅ Created price and stock features")
     
     # Step 3: Create news features
@@ -89,14 +95,14 @@ def main():
         if 'price_shock' not in df.columns:
             print("⚠️  Shock labels not found. Re-running create_price_features to generate them...")
             # Re-run create_price_features to ensure shock labels are created with the latest definition
-            # (multi-day cumulative returns exceeding 2σ threshold, same direction)
-            df = create_price_features(df)
+            # (multi-day cumulative returns exceeding threshold)
+            df = create_price_features(df, shock_window=shock_window, k_sigma=k_sigma, require_same_direction=require_same_direction)
             if 'price_shock' not in df.columns:
                 raise ValueError("Cannot create shock labels: create_price_features failed")
         
         target_column = 'price_shock'
         print(f"🎯 Target: Shock Detection (binary classification)")
-        print(f"   Shock definition: Cumulative return over 3 days > 1.5σ, same direction")
+        print(f"   Shock definition: Cumulative return over {shock_window} days > {k_sigma}σ, {'same direction' if require_same_direction else 'any direction'}")
         print(f"   Shock rate: {df['price_shock'].mean():.1%}")
     else:
         target_column = 'target_return' if target_mode == 'return' else 'target_price'
