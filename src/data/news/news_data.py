@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import re
 import time
 from typing import Optional
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from urllib.parse import urlparse
@@ -26,6 +27,32 @@ except ImportError:
 
 # Extended list of news sources
 RSS_SOURCES = {
+    # Direct RSS feeds (Commodity-focused)
+    "InvestingNewsNetwork_Copper": (
+        "https://investingnews.com/category/daily/copper-news/feed/"
+    ),
+    "CommodityHQ": (
+        "https://commodityhq.com/feed/"
+    ),
+    "OilPrice": (
+        "https://oilprice.com/rss/main"
+    ),
+    "WorldOil": (
+        "https://www.worldoil.com/rss?feed=news"
+    ),
+    "EconomicTimes_Commodities": (
+        "https://economictimes.indiatimes.com/markets/commodities/rssfeeds/1977022931.cms"
+    ),
+    "Moneycontrol_Commodities": (
+        "https://www.moneycontrol.com/rss/commodities.xml"
+    ),
+    "FinancialExpress_Commodities": (
+        "https://www.financialexpress.com/market/commodities/feed/"
+    ),
+    "BusinessStandard_Markets": (
+        "https://www.business-standard.com/rss/markets-106.rss"
+    ),
+    # Google News RSS (works reliably)
     "Reuters": (
         "https://news.google.com/rss/search?"
         "q=copper+source:reuters&hl=en-US&gl=US&ceid=US:en"
@@ -67,6 +94,123 @@ RSS_SOURCES = {
     "CopperGeneral": (
         "https://news.google.com/rss/search?"
         "q=copper+price+OR+copper+mining+OR+copper+supply+OR+LME+copper&hl=en-US&gl=US&ceid=US:en"
+    ),
+    # Geopolitical and war-related sources
+    "Copper_Geopolitics": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+OR+commodity+OR+mining)+AND+(war+OR+conflict+OR+geopolitical+OR+sanctions+OR+embargo+OR+trade+war)&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_Ukraine": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+OR+commodity)+AND+(Ukraine+OR+Russia+OR+Russian)&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_China_Trade": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+OR+commodity)+AND+(China+OR+Chinese)+AND+(trade+OR+tariff+OR+export+OR+import)&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_Supply_Chain": (
+        "https://news.google.com/rss/search?"
+        "q=(copper+OR+mining)+AND+(supply+chain+OR+logistics+OR+transport+OR+shipping+OR+port)&hl=en-US&gl=US&ceid=US:en"
+    ),
+    # Major copper mines (mine-specific Google News queries)
+    "Copper_Escondida": (
+        "https://news.google.com/rss/search?"
+        "q=Escondida+mine+copper+Chile+BHP&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_Collahuasi": (
+        "https://news.google.com/rss/search?"
+        "q=Collahuasi+mine+copper+Chile&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_CerroVerde": (
+        "https://news.google.com/rss/search?"
+        "q=Cerro+Verde+mine+copper+Peru+Freeport&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_Buenavista": (
+        "https://news.google.com/rss/search?"
+        "q=Buenavista+del+Cobre+mine+copper+Mexico+Grupo+Mexico&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_KamoaKakula": (
+        "https://news.google.com/rss/search?"
+        "q=Kamoa+Kakula+mine+copper+DRC+Congo&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_Grasberg": (
+        "https://news.google.com/rss/search?"
+        "q=Grasberg+mine+copper+Indonesia+Freeport&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_Antamina": (
+        "https://news.google.com/rss/search?"
+        "q=Antamina+mine+copper+Peru&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_Morenci": (
+        "https://news.google.com/rss/search?"
+        "q=Morenci+mine+copper+Arizona+Freeport&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_ElTeniente": (
+        "https://news.google.com/rss/search?"
+        "q=El+Teniente+mine+copper+Chile+Codelco&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_Chuquicamata": (
+        "https://news.google.com/rss/search?"
+        "q=Chuquicamata+mine+copper+Chile+Codelco&hl=en-US&gl=US&ceid=US:en"
+    ),
+    # Major producers/operators
+    "Copper_BHP": (
+        "https://news.google.com/rss/search?"
+        "q=BHP+copper+production+Escondida&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_Codelco": (
+        "https://news.google.com/rss/search?"
+        "q=Codelco+copper+Chile+(El+Teniente+OR+Chuquicamata)&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_Freeport": (
+        "https://news.google.com/rss/search?"
+        "q=Freeport+McMoRan+copper+(Grasberg+OR+Morenci)&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Copper_GrupoMexico": (
+        "https://news.google.com/rss/search?"
+        "q=Grupo+Mexico+copper+(Buenavista)&hl=en-US&gl=US&ceid=US:en"
+    ),
+    # Additional commodity news sources
+    "CNBC_Commodities": (
+        "https://news.google.com/rss/search?"
+        "q=copper+source:cnbc.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "YahooFinance_Commodities": (
+        "https://news.google.com/rss/search?"
+        "q=copper+source:yahoo.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "SeekingAlpha_Commodities": (
+        "https://news.google.com/rss/search?"
+        "q=copper+source:seekingalpha.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "ZeroHedge_Commodities": (
+        "https://news.google.com/rss/search?"
+        "q=copper+source:zerohedge.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "S&P_Global_Commodities": (
+        "https://news.google.com/rss/search?"
+        "q=copper+source:spglobal.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "Argus_Media": (
+        "https://news.google.com/rss/search?"
+        "q=copper+source:argusmedia.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "FastMarkets": (
+        "https://news.google.com/rss/search?"
+        "q=copper+source:fastmarkets.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    # Mining industry sources
+    "MiningWeekly": (
+        "https://news.google.com/rss/search?"
+        "q=copper+source:miningweekly.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "MiningJournal": (
+        "https://news.google.com/rss/search?"
+        "q=copper+source:mining-journal.com&hl=en-US&gl=US&ceid=US:en"
+    ),
+    "NorthernMiner": (
+        "https://news.google.com/rss/search?"
+        "q=copper+source:northernminer.com&hl=en-US&gl=US&ceid=US:en"
     ),
 }
 
@@ -567,6 +711,21 @@ def is_copper_relevant(title: str, text: str) -> bool:
         'glencore',  # Mining/trading company
         'antofagasta',  # Copper mining company
         'anglo american',  # Mining company
+        # Major copper mines and operators
+        'escondida',
+        'collahuasi',
+        'cerro verde',
+        'buenavista',
+        'kamoa',
+        'kakula',
+        'kamoa-kakula',
+        'grasberg',
+        'antamina',
+        'morenci',
+        'el teniente',
+        'chuquicamata',
+        'grupo mexico',
+        'freeport-mcmoran',
         'copper mine',
         'copper price',
         'copper production',
@@ -585,6 +744,28 @@ def is_copper_relevant(title: str, text: str) -> bool:
         'zambia copper',
         'copper cathode',
         'copper concentrate',
+        # Geopolitical and war-related terms
+        'copper sanctions',
+        'copper embargo',
+        'copper export ban',
+        'copper trade war',
+        'copper supply chain',
+        'copper logistics',
+        'copper shipping',
+        'copper port',
+        'copper transport',
+        'copper disruption',
+        'copper conflict',
+        'copper war',
+        'copper geopolitical',
+        # Major producing regions (geopolitical hotspots)
+        'chile mining',
+        'peru mining',
+        'congo mining',
+        'zambia mining',
+        'russia mining',
+        'ukraine mining',
+        'china mining',
     ]
     
     # Check if any keyword appears in the text
@@ -612,6 +793,199 @@ def _resolve_link_redirect(link: str) -> tuple[str, Optional[str]]:
         return final_url, domain
     except Exception:
         return link, extract_domain_from_url(link)
+
+
+def fetch_direct_rss(
+    source_name: str,
+    url: str,
+    retry_count: int = 3,
+    delay: float = 1.0,
+    filter_copper: bool = True,  # Filter for copper-relevant articles
+    query: Optional[str] = None
+) -> list[dict]:
+    """
+    Fetch news from direct RSS feed (not Google News) with retry logic.
+    Uses feedparser if available, otherwise falls back to BeautifulSoup.
+    
+    Args:
+        source_name: Name of the news source
+        url: RSS feed URL
+        retry_count: Number of retry attempts
+        delay: Delay between retries in seconds
+        filter_copper: If True, only return articles relevant to copper
+        query: Query/search term used to fetch this data (for tracking)
+    
+    Returns:
+        List of news records
+    """
+    # Try to use feedparser (cleaner API)
+    try:
+        import feedparser
+        USE_FEEDPARSER = True
+    except ImportError:
+        USE_FEEDPARSER = False
+    
+    for attempt in range(retry_count):
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+            }
+            
+            if USE_FEEDPARSER:
+                # Use requests to fetch RSS (handles SSL better than feedparser's urllib)
+                try:
+                    response = requests.get(url, timeout=30, headers=headers, verify=True)
+                    response.raise_for_status()
+                except requests.exceptions.SSLError:
+                    # If SSL verification fails, try without verification (less secure but works)
+                    import urllib3
+                    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                    response = requests.get(url, timeout=30, headers=headers, verify=False)
+                    response.raise_for_status()
+                
+                # Parse with feedparser from response content
+                feed = feedparser.parse(response.content)
+                if feed.bozo and feed.bozo_exception:
+                    # Try to continue anyway if it's just a minor parsing issue
+                    if 'SSL' in str(feed.bozo_exception) or 'certificate' in str(feed.bozo_exception).lower():
+                        # SSL error already handled by requests, ignore feedparser warning
+                        pass
+                    elif not feed.entries:
+                        # Only raise if we have no entries AND it's not SSL-related
+                        raise Exception(f"RSS parse error: {feed.bozo_exception}")
+                
+                records = []
+                for entry in feed.entries:
+                    title = entry.get('title', '')
+                    link = entry.get('link', '')
+                    # Parse publication date
+                    pub_date_raw = None
+                    if hasattr(entry, 'published'):
+                        pub_date_raw = entry.published
+                    elif hasattr(entry, 'updated'):
+                        pub_date_raw = entry.updated
+                    elif hasattr(entry, 'published_parsed') and entry.published_parsed:
+                        # feedparser provides parsed time struct
+                        import time as time_module
+                        pub_date_raw = time_module.strftime('%a, %d %b %Y %H:%M:%S %z', entry.published_parsed)
+                    
+                    # Get description/summary
+                    desc_raw = ''
+                    if hasattr(entry, 'summary'):
+                        desc_raw = entry.summary
+                    elif hasattr(entry, 'description'):
+                        desc_raw = entry.description
+                    
+                    # Filter for copper relevance if requested
+                    if filter_copper and not is_copper_relevant(title, desc_raw):
+                        continue
+                    
+                    # Extract domain from link
+                    domain = extract_domain_from_url(link)
+                    
+                    # Parse date string to datetime
+                    date_obj = None
+                    if pub_date_raw:
+                        try:
+                            # feedparser provides parsed time struct in entry.published_parsed
+                            if hasattr(entry, 'published_parsed') and entry.published_parsed:
+                                import time as time_module
+                                date_obj = datetime(*entry.published_parsed[:6])
+                            elif hasattr(entry, 'updated_parsed') and entry.updated_parsed:
+                                import time as time_module
+                                date_obj = datetime(*entry.updated_parsed[:6])
+                            else:
+                                # Fallback: try dateutil parser
+                                from dateutil import parser
+                                date_obj = parser.parse(pub_date_raw)
+                        except Exception:
+                            # If parsing fails, try manual parsing
+                            try:
+                                date_obj = datetime.strptime(pub_date_raw[:25], '%a, %d %b %Y %H:%M:%S')
+                            except Exception:
+                                pass
+                    
+                    record = {
+                        'title': clean_text(title),
+                        'text': clean_text(desc_raw),
+                        'source': source_name,
+                        'publication': domain or source_name,
+                        'link': link,
+                        'article_url': link,
+                        'original_link': link,
+                        'domain': domain or 'unknown',
+                        'query': query or source_name,
+                        'date': date_obj if date_obj else datetime.now(),
+                    }
+                    records.append(record)
+                
+                return records
+            else:
+                # Fallback to BeautifulSoup
+                try:
+                    response = requests.get(url, timeout=30, headers=headers, verify=True)
+                    response.raise_for_status()
+                except requests.exceptions.SSLError:
+                    # If SSL verification fails, try without verification (less secure but works)
+                    import urllib3
+                    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                    response = requests.get(url, timeout=30, headers=headers, verify=False)
+                    response.raise_for_status()
+                
+                soup = BeautifulSoup(response.text, "xml")
+                
+                records = []
+                items = soup.find_all("item")
+                
+                for item in items:
+                    title_raw = item.title.text if item.title else ""
+                    link = item.link.text if item.link else ""
+                    pub_date_raw = item.pubDate.text if item.pubDate else None
+                    desc_raw = item.description.text if item.description else ""
+                    
+                    # Filter for copper relevance if requested
+                    if filter_copper and not is_copper_relevant(title_raw, desc_raw):
+                        continue
+                    
+                    domain = extract_domain_from_url(link)
+                    
+                    # Parse date string to datetime
+                    date_obj = None
+                    if pub_date_raw:
+                        try:
+                            from dateutil import parser
+                            date_obj = parser.parse(pub_date_raw)
+                        except Exception:
+                            try:
+                                date_obj = datetime.strptime(pub_date_raw[:25], '%a, %d %b %Y %H:%M:%S')
+                            except Exception:
+                                pass
+                    
+                    record = {
+                        'title': clean_text(title_raw),
+                        'text': clean_text(desc_raw),
+                        'source': source_name,
+                        'publication': domain or source_name,
+                        'link': link,
+                        'article_url': link,
+                        'original_link': link,
+                        'domain': domain or 'unknown',
+                        'query': query or source_name,
+                        'date': date_obj if date_obj else datetime.now(),
+                    }
+                    records.append(record)
+                
+                return records
+                
+        except Exception as e:
+            if attempt < retry_count - 1:
+                time.sleep(delay * (attempt + 1))
+                continue
+            else:
+                print(f"  ⚠️  Failed to fetch {source_name} after {retry_count} attempts: {e}")
+                return []
+    
+    return []
 
 
 def fetch_google_news_rss(
@@ -1208,6 +1582,7 @@ def fetch_copper_news_with_variations(max_workers: int = 4) -> pd.DataFrame:
         DataFrame with news articles from multiple query variations
     """
     query_variations = [
+        # Basic queries
         "copper price",
         "copper mining",
         "copper supply",
@@ -1216,6 +1591,36 @@ def fetch_copper_news_with_variations(max_workers: int = 4) -> pd.DataFrame:
         "copper demand",
         "copper futures",
         "copper production",
+        # Major mine names to increase recall on operational news
+        "Escondida copper mine",
+        "Collahuasi copper mine",
+        "Cerro Verde copper mine",
+        "Buenavista del Cobre copper mine",
+        "Kamoa Kakula copper mine",
+        "Grasberg copper mine",
+        "Antamina copper mine",
+        "Morenci copper mine",
+        "El Teniente copper mine",
+        "Chuquicamata copper mine",
+        # Geopolitical and war-related queries
+        "copper war",
+        "copper conflict",
+        "copper sanctions",
+        "copper embargo",
+        "copper trade war",
+        "copper supply chain",
+        "copper logistics",
+        "copper shipping",
+        "copper disruption",
+        "copper geopolitical",
+        # Region-specific (geopolitical hotspots)
+        "copper Russia",
+        "copper Ukraine",
+        "copper China trade",
+        "copper Chile",
+        "copper Peru",
+        "copper Congo",
+        "copper Zambia",
     ]
     
     all_records = []
@@ -1342,6 +1747,23 @@ def fetch_copper_news_by_year(year: int, base_queries: Optional[list] = None, ma
         f"Peru copper {year}",
         f"China copper {year}",
         f"DRC copper {year}",  # Democratic Republic of Congo
+        f"Zambia copper {year}",
+        f"Russia copper {year}",
+        f"Ukraine copper {year}",
+    ]
+    
+    # Strategy 6: Geopolitical and war-related queries
+    geopolitical_queries = [
+        f"copper war {year}",
+        f"copper conflict {year}",
+        f"copper sanctions {year}",
+        f"copper embargo {year}",
+        f"copper trade war {year}",
+        f"copper supply chain {year}",
+        f"copper disruption {year}",
+        f"copper geopolitical {year}",
+        f"Russia Ukraine copper {year}",
+        f"China trade copper {year}",
     ]
     
     all_query_variations = (
@@ -1349,7 +1771,8 @@ def fetch_copper_news_by_year(year: int, base_queries: Optional[list] = None, ma
         year_range_queries + 
         company_queries + 
         event_queries + 
-        location_queries
+        location_queries +
+        geopolitical_queries
     )
     
     print(f"📅 Fetching news for year {year} using {len(all_query_variations)} query variations (parallel, {max_workers} workers)...")
@@ -1475,6 +1898,7 @@ def fetch_historical_copper_news(
 def _fetch_single_source(source_name: str, url: str) -> tuple[str, list[dict]]:
     """
     Helper function to fetch from a single source (for parallel execution).
+    Automatically detects if URL is a direct RSS feed or Google News RSS.
     
     Args:
         source_name: Name of the source
@@ -1483,6 +1907,9 @@ def _fetch_single_source(source_name: str, url: str) -> tuple[str, list[dict]]:
     Returns:
         Tuple of (source_name, records)
     """
+    # Check if this is a direct RSS feed (not Google News)
+    is_direct_rss = 'news.google.com' not in url.lower()
+    
     # Extract query from URL if possible, otherwise use source_name
     query = source_name  # Default to source_name
     if 'q=' in url:
@@ -1495,7 +1922,12 @@ def _fetch_single_source(source_name: str, url: str) -> tuple[str, list[dict]]:
         except Exception:
             pass
     
-    records = fetch_google_news_rss(source_name, url, query=query)
+    # Use appropriate fetch function
+    if is_direct_rss:
+        records = fetch_direct_rss(source_name, url, filter_copper=True, query=query)
+    else:
+        records = fetch_google_news_rss(source_name, url, query=query)
+    
     return source_name, records
 
 
@@ -1645,7 +2077,13 @@ if __name__ == "__main__":
     else:
         print("⚠️ No news data fetched!")
 
-    # Save to CSV
-    output_file = "copper_news_all_sources.csv"
+    # Save to CSV (in the same directory as this script)
+    output_dir = Path(__file__).parent
+    output_file = output_dir / "copper_news_all_sources.csv"
+    
+    # Remove 'year' column if it exists (it's not needed in the saved file)
+    if 'year' in df_news.columns:
+        df_news = df_news.drop(columns=['year'])
+    
     df_news.to_csv(output_file, index=False)
     print(f"\n💾 Saved to {output_file}")
