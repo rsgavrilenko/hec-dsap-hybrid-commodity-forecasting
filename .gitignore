@@ -18,3 +18,6 @@ src/data/news/classify_news_relevance.py
 
 # OS
 .DS_Store
+
+# Matplotlib local cache (avoid accidental commits)
+.mplconfig/

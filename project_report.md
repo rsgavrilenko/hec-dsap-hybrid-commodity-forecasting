@@ -14,12 +14,12 @@ Briefly summarize the research question, data, models, and the main findings (15
 
 ## 2. Data
 ### 2.1 Price data
-- Source: LME copper historical data (`src/data/copper/data_copper_lme_all_years.csv`)
+- Source: LME copper historical data (`data/raw/copper/data_copper_lme_all_years.csv`)
 - Date range and frequency.
 
 ### 2.2 News data
-- Source: RSS/Google News scraping pipeline (`src/data/news/news_data.py`)
-- Dataset: `src/data/news/copper_news_all_sources.csv`
+- Source: RSS/Google News scraping pipeline (`data/news/news_data.py`)
+- Dataset: `data/raw/news/copper_news_all_sources.csv`
 - Deduplication, cleaning, and alignment to trading days.
 
 ## 3. Methodology

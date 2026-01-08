@@ -101,11 +101,17 @@ You can switch the target mode in `main.py`:
 ├── PROPOSAL.md                  # Project proposal
 ├── project_report.md            # Report source (generate project_report.pdf)
 ├── data/
-│   └── raw/
-│       ├── copper/
-│       │   └── data_copper_lme_all_years.csv
-│       └── news/
-│           └── copper_news_all_sources.csv
+│   ├── raw/                      # Raw datasets used by main.py
+│   │   ├── copper/
+│   │   │   └── data_copper_lme_all_years.csv
+│   │   └── news/
+│   │       └── copper_news_all_sources.csv
+│   ├── news/
+│   │   └── news_data.py          # News collection utility (writes to data/raw/news)
+│   └── copper/
+│       ├── copper_data_parsing.py        # Price collection utility (optional)
+│       ├── copper_visualization.py       # Price/stock plot utility (optional)
+│       └── copper_price_stock_timeseries.png
 ├── results/                     # Outputs created by running main.py (plots/metrics)
 ├── artifacts/                   # Generated outputs (models, predictions, plots)
 │   └── shap/                    # SHAP explanations
@@ -115,9 +121,6 @@ You can switch the target mode in `main.py`:
 │   └── top_news_events.png
 ├── src/
 │   ├── data_loader.py           # Data loading / alignment
-│   ├── news_data.py             # News data collection (writes to data/raw/news)
-│   ├── copper_data_parsing.py   # (Optional) price data collection utility
-│   ├── copper_visualization.py  # (Optional) visualization utility
 │   ├── features/
 │   │   ├── price_features.py     # Price and stock feature creation
 │   │   └── sentiment_features.py # News sentiment and heuristic features

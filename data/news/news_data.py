@@ -2163,7 +2163,7 @@ if __name__ == "__main__":
         print("⚠️ No news data fetched!")
 
     # Save to CSV (prefer Week-11 structure: data/raw/news)
-    project_root = Path(__file__).resolve().parents[1]
+    project_root = Path(__file__).resolve().parents[2]
     output_dir = project_root / "data" / "raw" / "news"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / "copper_news_all_sources.csv"
