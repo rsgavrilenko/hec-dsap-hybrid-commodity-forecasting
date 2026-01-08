@@ -391,6 +391,38 @@ def create_heuristic_features(
         df['news_heuristic_net_score'] = (df['news_heuristic_bullish_score'] - 
                                            df['news_heuristic_bearish_score'])
         
+        # Category-based aggregations (group related heuristics for better signal)
+        # Supply-side shocks (mine closures, strikes, production cuts)
+        supply_shock_heuristics = ['mine_closure', 'strike_labor', 'production_cut', 'export_ban']
+        supply_cols = [f'news_heuristic_{h}' for h in supply_shock_heuristics if f'news_heuristic_{h}' in df.columns]
+        if supply_cols:
+            df['news_heuristic_supply_shock'] = df[supply_cols].sum(axis=1)
+        
+        # Geopolitical shocks (wars, sanctions, embargoes)
+        geo_shock_heuristics = ['war_conflict', 'geopolitical_tension', 'sanctions', 'sanctions_embargo', 
+                                'russia_ukraine', 'middle_east_conflict', 'export_restriction']
+        geo_cols = [f'news_heuristic_{h}' for h in geo_shock_heuristics if f'news_heuristic_{h}' in df.columns]
+        if geo_cols:
+            df['news_heuristic_geo_shock'] = df[geo_cols].sum(axis=1)
+        
+        # Demand-side signals (demand surge, China demand, infrastructure)
+        demand_positive_heuristics = ['demand_surge', 'china_demand', 'infrastructure_spending', 'economic_growth']
+        demand_pos_cols = [f'news_heuristic_{h}' for h in demand_positive_heuristics if f'news_heuristic_{h}' in df.columns]
+        if demand_pos_cols:
+            df['news_heuristic_demand_positive'] = df[demand_pos_cols].sum(axis=1)
+        
+        # Demand-side negative (weakness, recession)
+        demand_negative_heuristics = ['demand_weakness', 'recession']
+        demand_neg_cols = [f'news_heuristic_{h}' for h in demand_negative_heuristics if f'news_heuristic_{h}' in df.columns]
+        if demand_neg_cols:
+            df['news_heuristic_demand_negative'] = df[demand_neg_cols].sum(axis=1)
+        
+        # Production expansion (increases supply, bearish)
+        production_expansion_heuristics = ['mine_opening', 'production_increase', 'capacity_expansion']
+        prod_exp_cols = [f'news_heuristic_{h}' for h in production_expansion_heuristics if f'news_heuristic_{h}' in df.columns]
+        if prod_exp_cols:
+            df['news_heuristic_production_expansion'] = df[prod_exp_cols].sum(axis=1)
+        
         if verbose:
             print(f"\n✅ Created aggregate scores:")
             print(f"   Bullish score range: {df['news_heuristic_bullish_score'].min()} - {df['news_heuristic_bullish_score'].max()}")
@@ -485,6 +517,19 @@ def create_news_features(
     # Add basic news availability features
     if 'news_count' in df.columns:
         df['no_news'] = (df['news_count'] == 0).astype(int)
+    
+    # Add temporal patterns for news (day of week, month effects)
+    if 'date' in df.columns:
+        df['date'] = pd.to_datetime(df['date'])
+        df['day_of_week'] = df['date'].dt.dayofweek  # 0=Monday, 6=Sunday
+        df['month'] = df['date'].dt.month
+        df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
+        
+        # News intensity by day of week (some days may have more impactful news)
+        # Create interaction: news_count * day_of_week (captures weekly patterns)
+        if 'news_count' in df.columns:
+            df['news_count_weekday'] = df['news_count'] * (df['day_of_week'] + 1)  # Weight by day
+            df['news_count_weekend'] = df['news_count'] * df['is_weekend']  # Weekend effect
     else:
         df['no_news'] = 1
 
@@ -665,6 +710,15 @@ def add_rolling_news_features(df: pd.DataFrame, verbose: bool = True) -> pd.Data
         'news_count_high_impact',
         'news_intensity_score',
         'news_scarcity',
+        # Temporal patterns (if they exist)
+        'news_count_weekday',
+        'news_count_weekend',
+        # Category-based aggregations
+        'news_heuristic_supply_shock',
+        'news_heuristic_geo_shock',
+        'news_heuristic_demand_positive',
+        'news_heuristic_demand_negative',
+        'news_heuristic_production_expansion',
     ]
     # Add weighted sentiment features if they exist
     weighted_cols = [col for col in df.columns if col.endswith('_weighted')]
@@ -673,17 +727,21 @@ def add_rolling_news_features(df: pd.DataFrame, verbose: bool = True) -> pd.Data
     # Filter to only existing columns
     sentiment_score_cols = [col for col in sentiment_score_cols if col in df.columns]
     
-    # Rolling aggregations for sentiment scores (1/3/5/7/10 days for better temporal coverage)
-    windows = [1, 3, 5, 7, 10]
+    # Rolling aggregations for sentiment scores (extended windows for better temporal coverage)
+    windows = [1, 3, 5, 7, 10, 14]  # Added 14-day window for longer-term patterns
     for window in windows:
         for col in sentiment_score_cols:
             # Rolling mean
             df[f'{col}_rolling_mean_{window}d'] = df[col].rolling(window=window, min_periods=1).mean().shift(1)
             # Rolling sum
             df[f'{col}_rolling_sum_{window}d'] = df[col].rolling(window=window, min_periods=1).sum().shift(1)
+            # Rolling max (captures peak sentiment)
+            df[f'{col}_rolling_max_{window}d'] = df[col].rolling(window=window, min_periods=1).max().shift(1)
+            # Rolling std (captures sentiment volatility)
+            df[f'{col}_rolling_std_{window}d'] = df[col].rolling(window=window, min_periods=1).std().shift(1)
     
-    # Lags for sentiment scores (1/2/5 days)
-    lags = [1, 2, 5]
+    # Lags for sentiment scores (extended set)
+    lags = [1, 2, 5, 7]  # Added 7-day lag (weekly pattern)
     for lag in lags:
         for col in sentiment_score_cols:
             df[f'{col}_lag{lag}'] = df[col].shift(lag)

@@ -127,7 +127,7 @@ def main():
     tune_hyperparams = False  # Set to True for hyperparameter tuning (slower)
     run_shap = True  # Set True only if you installed shap (optional)
     select_topk_news_features = True  # Select top-K news features per window (TRAIN-only)
-    topk_news_features = 50  # Increased from 25 to allow more news signal (balance between signal and noise)
+    topk_news_features = 15  # Very strict selection - only the strongest news signals
     
     if target_mode == 'shock':
         # Shock detection: binary classification
