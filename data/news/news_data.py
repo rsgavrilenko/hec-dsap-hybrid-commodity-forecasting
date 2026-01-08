@@ -2162,8 +2162,10 @@ if __name__ == "__main__":
     else:
         print("⚠️ No news data fetched!")
 
-    # Save to CSV (in the same directory as this script)
-    output_dir = Path(__file__).parent
+    # Save to CSV (prefer Week-11 structure: data/raw/news)
+    project_root = Path(__file__).resolve().parents[2]
+    output_dir = project_root / "data" / "raw" / "news"
+    output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / "copper_news_all_sources.csv"
     
     # Remove 'year' column if it exists (it's not needed in the saved file)

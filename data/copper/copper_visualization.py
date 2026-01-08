@@ -7,7 +7,8 @@ from pathlib import Path
 # ------------------
 # Config
 # ------------------
-DATA_PATH = Path(__file__).parent / "data_copper_lme_all_years.csv"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATA_PATH = PROJECT_ROOT / "data" / "raw" / "copper" / "data_copper_lme_all_years.csv"
 FIG_PATH = Path(__file__).parent / "copper_price_stock_timeseries.png"
 
 
@@ -58,10 +59,10 @@ def plot_price_and_stock(df: pd.DataFrame):
 
     fig.tight_layout()
     fig.savefig(FIG_PATH, dpi=150)
-    plt.show()
+    plt.close(fig)
 
 
 if __name__ == "__main__":
     df = load_data()
-    print(df.head())
     plot_price_and_stock(df)
+    print(f"Saved plot to {FIG_PATH}")

@@ -13,7 +13,7 @@ Does incorporating news sentiment improve copper price forecasting
 compared to using price data alone?
 """
 
-from src.data.data_loader import align_price_and_news
+from src.data_loader import align_price_and_news
 from src.features.price_features import create_price_features
 from src.features.sentiment_features import create_news_features, validate_sentiment_features
 from src.models import prepare_features, train_models, train_shock_detection_model
@@ -168,7 +168,7 @@ def main():
             model_type=model_type,
             tune_hyperparams=tune_hyperparams,
             save_models=True,
-            save_dir='artifacts',
+            save_dir='results/models',
             feature_names=feature_names,
             select_topk_news_features=select_topk_news_features,
             topk_news_features=topk_news_features,
@@ -185,25 +185,23 @@ def main():
         print_shock_detection_metrics(results, verbose=True)
         
         # Create visualizations
-        output_dir = Path('artifacts')
-        output_dir.mkdir(exist_ok=True)
-        figures_dir = Path('figures')
-        figures_dir.mkdir(exist_ok=True)
+        figures_dir = Path('results/figures')
+        figures_dir.mkdir(parents=True, exist_ok=True)
         
-        # Main shock detection results plot (saved to both artifacts and figures)
-        plot_shock_detection_results(results, save_dir='artifacts')
+        # Main shock detection results plot
+        plot_shock_detection_results(results, save_dir='results/figures')
         
         # Price with shocks visualization
-        plot_price_with_shocks(df, results, save_dir='figures')
+        plot_price_with_shocks(df, results, save_dir='results/figures')
         
         # Top news events visualization (reduced to 12 to avoid overlap)
-        plot_top_news_events(df, results, save_dir='figures', top_n=12)
+        plot_top_news_events(df, results, save_dir='results/figures', top_n=12)
         
         # Comprehensive news statistics
         print("\n" + "="*80)
         print("📰 Generating comprehensive news statistics...")
         print("="*80)
-        plot_news_statistics(save_dir='figures')
+        plot_news_statistics(save_dir='results/figures')
         
         # Feature importance plot (replaces SHAP) - use best hybrid model
         if run_shap:
@@ -235,7 +233,7 @@ def main():
                         best_model,
                         importance_feature_names,
                         top_n=20,
-                        save_dir='artifacts/shap'  # Will be saved to both artifacts and figures
+                        save_dir='results/figures'
                     )
                 else:
                     print("⚠️  Best hybrid model not found for feature importance")
@@ -247,7 +245,7 @@ def main():
                         results['model_hybrid'],
                         importance_feature_names,
                         top_n=20,
-                        save_dir='artifacts/shap'  # Will be saved to both artifacts and figures
+                        save_dir='results/figures'
                     )
                 else:
                     print("⚠️  Hybrid model not available for feature importance")
@@ -294,13 +292,10 @@ def main():
     print("="*80)
     
     # Create output directory
-    output_dir = Path('artifacts')
-    output_dir.mkdir(exist_ok=True)
-    figures_dir = Path('figures')
-    figures_dir.mkdir(exist_ok=True)
+    figures_dir = Path('results/figures')
+    figures_dir.mkdir(parents=True, exist_ok=True)
     
-    # Plot forecasts (save to artifacts and figures)
-    plot_forecasts(results, save_path=output_dir / f'forecasts_{target_mode}.png')
+    # Plot forecasts
     plot_forecasts(results, save_path=figures_dir / f'forecasts_{target_mode}.png')
     
     # Plot feature importance (use last window or single split)
@@ -315,12 +310,6 @@ def main():
         X_hybrid_test = X_hybrid[split_idx:]
     
     plot_feature_importance(
-        last_model, 
-        feature_names['hybrid'], 
-        top_n=20,
-        save_path=output_dir / f'feature_importance_{target_mode}.png'
-    )
-    plot_feature_importance(
         last_model,
         feature_names['hybrid'],
         top_n=20,
@@ -331,22 +320,16 @@ def main():
     plot_correlation_heatmap(
         df,
         feature_names['hybrid'][:50],  # Limit to 50 features
-        save_path=output_dir / f'correlation_heatmap_{target_mode}.png'
-    )
-    plot_correlation_heatmap(
-        df,
-        feature_names['hybrid'][:50],
         save_path=figures_dir / f'correlation_heatmap_{target_mode}.png'
     )
     
     # Summary table (CSV + PNG for report)
-    summary_csv_artifacts = output_dir / f'summary_metrics_{target_mode}.csv'
-    summary_csv_figures = figures_dir / f'summary_metrics_{target_mode}.csv'
-    summary_png_figures = figures_dir / f'summary_metrics_{target_mode}.png'
-    summary_df = create_summary_table(results, save_path=summary_csv_artifacts)
+    summary_csv_path = figures_dir / f'summary_metrics_{target_mode}.csv'
+    summary_png_path = figures_dir / f'summary_metrics_{target_mode}.png'
+    summary_df = create_summary_table(results, save_path=summary_csv_path)
     if summary_df is not None and len(summary_df) > 0:
-        summary_df.to_csv(summary_csv_figures, index=False)
-        plot_regression_metrics_table(summary_df, save_path=str(summary_png_figures),
+        summary_df.to_csv(summary_csv_path, index=False)
+        plot_regression_metrics_table(summary_df, save_path=str(summary_png_path),
                                       title=f'Regression Metrics Summary ({target_mode})')
     print(f"\n✅ Summary table saved")
     
@@ -361,7 +344,7 @@ def main():
                 X_hybrid_test,
                 feature_names['hybrid'],
                 top_n=20,
-                save_dir=str(output_dir / 'shap')
+                save_dir=str(figures_dir)
             )
         else:
             explain_with_shap(
@@ -369,7 +352,7 @@ def main():
                 X_hybrid_test,
                 feature_names['hybrid'],
                 top_n=20,
-                save_dir=str(output_dir / 'shap')
+                save_dir=str(figures_dir)
             )
     else:
         print("ℹ️  SHAP disabled (set run_shap=True to enable; requires `pip install shap`).")

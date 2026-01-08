@@ -9,8 +9,8 @@ __pycache__/
 # Jupyter Notebooks
 *.ipynb
 
-# Artifacts (plots, models, etc.)
-artifacts/
+# Generated outputs (optional - uncomment if you don't want to track results/)
+# results/
 
 # Temporary analysis scripts
 analyze_shock_definitions.py
@@ -18,3 +18,6 @@ src/data/news/classify_news_relevance.py
 
 # OS
 .DS_Store
+
+# Matplotlib local cache (avoid accidental commits)
+.mplconfig/

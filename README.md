@@ -54,8 +54,23 @@ This project combines time-series forecasting with news sentiment analysis to pr
    - Model comparison table with RMSE, MAE, R², and Directional Accuracy (or AUC, F1 for shock detection)
    - Winner model identification
    - Performance improvement metrics
-   - Saved artifacts in `artifacts/` (models, predictions, detailed plots)
-   - Saved figures in `figures/` (visualizations for reports: shock detection results, price with shocks, top news events)
+   - All outputs saved to `results/`:
+     - Plots and visualizations in `results/figures/`
+     - Model files (if enabled) in `results/models/`
+
+## Report (PDF)
+Write the report in `project_report.md` and generate `project_report.pdf` (pandoc recommended):
+
+```bash
+pandoc project_report.md -o project_report.pdf --pdf-engine=xelatex --toc --number-sections
+```
+
+## Figures for the report
+All visualizations are saved in `results/figures/`:
+- Shock detection plots: `shock_detection_results.png`, `price_with_shocks.png`, `top_news_events_table.png`, `news_statistics.png`
+- Regression plots (when `target_mode` is `price` or `return`):
+  - `forecasts_price.png`, `summary_metrics_price.png` (and `.csv`)
+  - `forecasts_return.png`, `summary_metrics_return.png` (and `.csv`)
 
 ### Target Definition (Important)
 
@@ -86,20 +101,24 @@ You can switch the target mode in `main.py`:
 ├── environment.yml              # Conda environment definition
 ├── README.md                    # This file
 ├── PROPOSAL.md                  # Project proposal
-├── artifacts/                   # Generated outputs (models, predictions, plots)
-│   └── shap/                    # SHAP explanations
-├── figures/                     # Visualization outputs for reports
-│   └── shock_detection_results.png
-│   └── price_with_shocks.png
-│   └── top_news_events.png
-├── src/
-│   ├── data/
-│   │   ├── data_loader.py       # Unified data loading functions
+├── project_report.md            # Report source (generate project_report.pdf)
+├── data/
+│   ├── raw/                      # Raw datasets used by main.py
 │   │   ├── copper/
-│   │   │   └── data_copper_lme_all_years.csv  # Copper price data
+│   │   │   └── data_copper_lme_all_years.csv
 │   │   └── news/
-│   │       ├── news_data.py     # News data collection
-│   │       └── copper_news_all_sources.csv  # Collected news data
+│   │       └── copper_news_all_sources.csv
+│   ├── news/
+│   │   └── news_data.py          # News collection utility (writes to data/raw/news)
+│   └── copper/
+│       ├── copper_data_parsing.py        # Price collection utility (optional)
+│       ├── copper_visualization.py       # Price/stock plot utility (optional)
+│       └── copper_price_stock_timeseries.png
+├── results/                     # Outputs created by running main.py
+│   ├── figures/                 # All plots and visualizations
+│   └── models/                  # Saved model files (if save_models=True)
+├── src/
+│   ├── data_loader.py           # Data loading / alignment
 │   ├── features/
 │   │   ├── price_features.py     # Price and stock feature creation
 │   │   └── sentiment_features.py # News sentiment and heuristic features

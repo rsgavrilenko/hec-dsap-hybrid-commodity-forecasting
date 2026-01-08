@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 from bs4 import BeautifulSoup
 from datetime import datetime
+from pathlib import Path
 
 
 URL = "https://www.westmetall.com/en/markdaten.php?action=table&field=LME_Cu_cash"
@@ -89,5 +90,9 @@ if __name__ == "__main__":
     print(df.head())
     print(df.tail())
 
-    df.to_csv("data_copper_lme_all_years.csv", index=False)
-    print("Saved data_copper_lme_all_years.csv")
+    project_root = Path(__file__).resolve().parents[2]
+    out_dir = project_root / "data" / "raw" / "copper"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "data_copper_lme_all_years.csv"
+    df.to_csv(out_path, index=False)
+    print(f"Saved {out_path}")
