@@ -114,11 +114,10 @@ You can switch the target mode in `main.py`:
 │   └── price_with_shocks.png
 │   └── top_news_events.png
 ├── src/
-│   ├── data/
-│   │   ├── data_loader.py       # Unified data loading functions
-│   │   ├── copper/
-│   │   └── news/
-│   │       └── news_data.py     # News data collection (writes to data/raw/news)
+│   ├── data_loader.py           # Data loading / alignment
+│   ├── news_data.py             # News data collection (writes to data/raw/news)
+│   ├── copper_data_parsing.py   # (Optional) price data collection utility
+│   ├── copper_visualization.py  # (Optional) visualization utility
 │   ├── features/
 │   │   ├── price_features.py     # Price and stock feature creation
 │   │   └── sentiment_features.py # News sentiment and heuristic features

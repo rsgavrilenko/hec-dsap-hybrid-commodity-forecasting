@@ -13,7 +13,7 @@ Does incorporating news sentiment improve copper price forecasting
 compared to using price data alone?
 """
 
-from src.data.data_loader import align_price_and_news
+from src.data_loader import align_price_and_news
 from src.features.price_features import create_price_features
 from src.features.sentiment_features import create_news_features, validate_sentiment_features
 from src.models import prepare_features, train_models, train_shock_detection_model

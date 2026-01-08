@@ -145,9 +145,9 @@ def load_copper_prices(file_path: Optional[str] = None) -> pd.DataFrame:
     """
     if file_path is None:
         # Prefer Week-11 structure: data/raw/copper/...
-        project_root = Path(__file__).resolve().parents[2]
+        project_root = Path(__file__).resolve().parents[1]
         preferred = project_root / "data" / "raw" / "copper" / "data_copper_lme_all_years.csv"
-        legacy = Path(__file__).parent / "copper" / "data_copper_lme_all_years.csv"
+        legacy = project_root / "src" / "data" / "copper" / "data_copper_lme_all_years.csv"
         file_path = preferred if preferred.exists() else legacy
 
     # Load CSV
@@ -201,9 +201,9 @@ def load_news_data(
     """
     if file_path is None:
         # Prefer Week-11 structure: data/raw/news/...
-        project_root = Path(__file__).resolve().parents[2]
+        project_root = Path(__file__).resolve().parents[1]
         preferred = project_root / "data" / "raw" / "news" / "copper_news_all_sources.csv"
-        legacy = Path(__file__).parent / "news" / "copper_news_all_sources.csv"
+        legacy = project_root / "src" / "data" / "news" / "copper_news_all_sources.csv"
         file_path = preferred if preferred.exists() else legacy
 
     # Load CSV
