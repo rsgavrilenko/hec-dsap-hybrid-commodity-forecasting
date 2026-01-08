@@ -222,12 +222,11 @@ def plot_shock_detection_results(results: Dict, save_dir: str = 'results/figures
     
     plt.tight_layout()
     
-    # Save to both artifacts and figures
-    for save_base_dir in ['artifacts', 'figures']:
-        save_path = Path(save_base_dir) / 'shock_detection_results.png'
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        print(f"💾 Saved shock detection plots to {save_path}")
+    # Save to results/figures
+    save_path = Path(save_dir) / 'shock_detection_results.png'
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    print(f"💾 Saved shock detection plots to {save_path}")
     plt.close()
 
 
