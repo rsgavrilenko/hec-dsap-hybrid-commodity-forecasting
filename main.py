@@ -23,7 +23,7 @@ from src.evaluation import (
     create_summary_table, explain_with_shap, analyze_prediction_errors,
     print_shock_detection_metrics, plot_shock_detection_results,
     plot_feature_importance_shock, plot_price_with_shocks, plot_top_news_events,
-    plot_news_statistics
+    plot_news_statistics, plot_regression_metrics_table
 )
 from pathlib import Path
 import numpy as np
@@ -44,21 +44,18 @@ def main():
     print("\n" + "="*80)
     print("📥 Step 1: Loading and aligning data...")
     print("="*80)
-    # Load news data with relaxed filters for better coverage
-    # Use all sources and all news (not just "sufficient") to maximize signal
     df = align_price_and_news(
-        filter_sufficient_news=False,  # Include all news, not just "sufficient"
-        allowed_sources=None,  # Use all available sources for better coverage
-        drop_price_recap_only=True # Drop price recap only news
+        filter_sufficient_news=False,
+        allowed_sources=None,
+        drop_price_recap_only=True
     )
     print(f"✅ Loaded {len(df)} records")
     print(f"   Date range: {df['date'].min().date()} to {df['date'].max().date()}")
     
-    # Shock definition parameters (adjustable to increase/decrease shock rate)
-    # Defined early so they're available for both feature creation and reporting
-    shock_window = 2  # Number of days for cumulative return (reduced from 3)
-    k_sigma = 1.25  # Threshold in std devs (reduced from 1.5) - lower = more shocks
-    require_same_direction = True  # If False, allows mixed-direction moves (more shocks)
+    # Shock definition parameters
+    shock_window = 2
+    k_sigma = 1.25
+    require_same_direction = True
     
     # Step 2: Create price features
     print("\n" + "="*80)
@@ -71,7 +68,6 @@ def main():
     print("\n" + "="*80)
     print("🔧 Step 3: Creating news features...")
     print("="*80)
-    # Prefer compact FinBERT sentiment scores over high-dimensional embeddings
     df = create_news_features(df, use_finbert=True, finbert_mode='sentiment', verbose=True)
     print(f"✅ Created news features (FinBERT/TF-IDF embeddings + heuristics + rolling/lags)")
     
@@ -300,9 +296,12 @@ def main():
     # Create output directory
     output_dir = Path('artifacts')
     output_dir.mkdir(exist_ok=True)
+    figures_dir = Path('figures')
+    figures_dir.mkdir(exist_ok=True)
     
-    # Plot forecasts
-    plot_forecasts(results, save_path=output_dir / 'forecasts.png')
+    # Plot forecasts (save to artifacts and figures)
+    plot_forecasts(results, save_path=output_dir / f'forecasts_{target_mode}.png')
+    plot_forecasts(results, save_path=figures_dir / f'forecasts_{target_mode}.png')
     
     # Plot feature importance (use last window or single split)
     if use_walk_forward:
@@ -319,18 +318,36 @@ def main():
         last_model, 
         feature_names['hybrid'], 
         top_n=20,
-        save_path=output_dir / 'feature_importance.png'
+        save_path=output_dir / f'feature_importance_{target_mode}.png'
+    )
+    plot_feature_importance(
+        last_model,
+        feature_names['hybrid'],
+        top_n=20,
+        save_path=figures_dir / f'feature_importance_{target_mode}.png'
     )
     
     # Correlation heatmap
     plot_correlation_heatmap(
         df,
         feature_names['hybrid'][:50],  # Limit to 50 features
-        save_path=output_dir / 'correlation_heatmap.png'
+        save_path=output_dir / f'correlation_heatmap_{target_mode}.png'
+    )
+    plot_correlation_heatmap(
+        df,
+        feature_names['hybrid'][:50],
+        save_path=figures_dir / f'correlation_heatmap_{target_mode}.png'
     )
     
-    # Summary table
-    summary_df = create_summary_table(results, save_path=output_dir / 'summary_metrics.csv')
+    # Summary table (CSV + PNG for report)
+    summary_csv_artifacts = output_dir / f'summary_metrics_{target_mode}.csv'
+    summary_csv_figures = figures_dir / f'summary_metrics_{target_mode}.csv'
+    summary_png_figures = figures_dir / f'summary_metrics_{target_mode}.png'
+    summary_df = create_summary_table(results, save_path=summary_csv_artifacts)
+    if summary_df is not None and len(summary_df) > 0:
+        summary_df.to_csv(summary_csv_figures, index=False)
+        plot_regression_metrics_table(summary_df, save_path=str(summary_png_figures),
+                                      title=f'Regression Metrics Summary ({target_mode})')
     print(f"\n✅ Summary table saved")
     
     # Step 8: SHAP explanations (optional, can be slow)

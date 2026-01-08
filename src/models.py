@@ -15,6 +15,31 @@ from typing import Dict, Tuple, Optional, List
 import warnings
 warnings.filterwarnings('ignore')
 
+# Optional imports for regression baselines / advanced models
+try:
+    import joblib
+    JOBLIB_AVAILABLE = True
+except ImportError:
+    JOBLIB_AVAILABLE = False
+
+try:
+    from statsmodels.tsa.arima.model import ARIMA
+    STATSMODELS_AVAILABLE = True
+except Exception:
+    STATSMODELS_AVAILABLE = False
+
+try:
+    import xgboost as xgb  # type: ignore
+    XGB_AVAILABLE = True
+except Exception:
+    XGB_AVAILABLE = False
+
+try:
+    import lightgbm as lgb  # type: ignore
+    LGB_AVAILABLE = True
+except Exception:
+    LGB_AVAILABLE = False
+
 # Optional imports
 try:
     from imblearn.over_sampling import SMOTE
@@ -140,15 +165,210 @@ def train_models(X_price, X_news, X_hybrid, y, test_size=0.2, random_state=42,
                  feature_names=None, select_topk_news_features=False, topk_news_features=15):
     """
     Train baseline and hybrid models for price/return prediction.
-    
-    This is a placeholder - implement based on your regression needs.
+
+    Models:
+    - ARIMA baseline (univariate on y), if statsmodels is available
+    - ML baseline on price features
+    - Hybrid ML model on price+news features
+
+    Validation:
+    - Single chronological split, or expanding walk-forward windows
+
+    Returns:
+        results dict with predictions, models, and window info (if walk-forward)
     """
-    # Placeholder implementation
-    results = {
-        'model_price': None,
-        'model_hybrid': None,
-        'split_idx': int(len(y) * (1 - test_size))
+    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+    def directional_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+        yt = np.asarray(y_true).reshape(-1)
+        yp = np.asarray(y_pred).reshape(-1)
+        if len(yt) == 0:
+            return 0.0
+        return float((np.sign(yt) == np.sign(yp)).mean())
+
+    def make_regressor(kind: str):
+        kind = (kind or 'gbr').lower()
+        if kind == 'xgb' and XGB_AVAILABLE:
+            return xgb.XGBRegressor(
+                n_estimators=500,
+                max_depth=6,
+                learning_rate=0.05,
+                subsample=0.8,
+                colsample_bytree=0.8,
+                reg_lambda=1.0,
+                random_state=random_state,
+                n_jobs=4,
+            )
+        if kind == 'lgb' and LGB_AVAILABLE:
+            return lgb.LGBMRegressor(
+                n_estimators=800,
+                num_leaves=31,
+                learning_rate=0.03,
+                subsample=0.8,
+                colsample_bytree=0.8,
+                random_state=random_state,
+            )
+        # default: Gradient Boosting Regressor
+        return GradientBoostingRegressor(
+            n_estimators=600,
+            max_depth=4,
+            learning_rate=0.05,
+            subsample=0.85,
+            random_state=random_state,
+        )
+
+    def fit_predict_arima(y_train: np.ndarray, y_test: np.ndarray) -> np.ndarray:
+        # Keep simple and stable for educational repo
+        if not STATSMODELS_AVAILABLE:
+            return np.full_like(y_test, fill_value=np.mean(y_train), dtype=float)
+        try:
+            model = ARIMA(y_train, order=(1, 0, 0))
+            res = model.fit()
+            preds = res.forecast(steps=len(y_test))
+            return np.asarray(preds, dtype=float)
+        except Exception:
+            return np.full_like(y_test, fill_value=np.mean(y_train), dtype=float)
+
+    def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+        rmse = float(np.sqrt(mean_squared_error(y_true, y_pred)))
+        mae = float(mean_absolute_error(y_true, y_pred))
+        r2 = float(r2_score(y_true, y_pred))
+        da = directional_accuracy(y_true, y_pred)
+        return {'RMSE': rmse, 'MAE': mae, 'R²': r2, 'Directional Accuracy': da}
+
+    y = np.asarray(y).reshape(-1)
+    n = len(y)
+    if n < 50:
+        raise ValueError(f"Not enough samples for regression training: {n}")
+
+    # Ensure arrays are numpy
+    X_price = np.asarray(X_price)
+    X_hybrid = np.asarray(X_hybrid)
+
+    results: Dict = {
+        'use_walk_forward': bool(use_walk_forward),
+        'model_type': model_type,
+        'n_windows': int(n_windows),
     }
+
+    if not use_walk_forward:
+        split_idx = int(n * (1 - test_size))
+        Xp_tr, Xp_te = X_price[:split_idx], X_price[split_idx:]
+        Xh_tr, Xh_te = X_hybrid[:split_idx], X_hybrid[split_idx:]
+        y_tr, y_te = y[:split_idx], y[split_idx:]
+
+        model_price = make_regressor(model_type)
+        model_hybrid = make_regressor(model_type)
+
+        model_price.fit(Xp_tr, y_tr)
+        model_hybrid.fit(Xh_tr, y_tr)
+
+        pred_price = model_price.predict(Xp_te)
+        pred_hybrid = model_hybrid.predict(Xh_te)
+        pred_arima = fit_predict_arima(y_tr, y_te)
+
+        results.update({
+            'split_idx': split_idx,
+            'y_test': y_te,
+            'pred_arima': pred_arima,
+            'pred_price': pred_price,
+            'pred_hybrid': pred_hybrid,
+            'metrics_arima': compute_metrics(y_te, pred_arima),
+            'metrics_price': compute_metrics(y_te, pred_price),
+            'metrics_hybrid': compute_metrics(y_te, pred_hybrid),
+            'model_arima': None,
+            'model_price': model_price,
+            'model_hybrid': model_hybrid,
+        })
+
+        if save_models and JOBLIB_AVAILABLE:
+            from pathlib import Path
+            out = Path(save_dir)
+            out.mkdir(parents=True, exist_ok=True)
+            joblib.dump(model_price, out / 'model_price.pkl')
+            joblib.dump(model_hybrid, out / 'model_hybrid.pkl')
+            np.save(out / 'pred_price.npy', pred_price)
+            np.save(out / 'pred_hybrid.npy', pred_hybrid)
+            np.save(out / 'pred_arima.npy', pred_arima)
+
+        return results
+
+    # Walk-forward (expanding window)
+    initial_train = int(n * (1 - test_size))
+    remaining = n - initial_train
+    if remaining <= 0:
+        raise ValueError("Invalid split: test_size too small/large for walk-forward.")
+    window_len = max(20, remaining // n_windows)
+
+    window_info: List[Dict] = []
+    models_price: List = []
+    models_hybrid: List = []
+    preds_price: List[np.ndarray] = []
+    preds_hybrid: List[np.ndarray] = []
+    preds_arima: List[np.ndarray] = []
+    metrics_by_window: List[Dict] = []
+
+    train_end = initial_train
+    for w in range(n_windows):
+        test_end = min(n, train_end + window_len)
+        if test_end <= train_end:
+            break
+
+        Xp_tr, Xp_te = X_price[:train_end], X_price[train_end:test_end]
+        Xh_tr, Xh_te = X_hybrid[:train_end], X_hybrid[train_end:test_end]
+        y_tr, y_te = y[:train_end], y[train_end:test_end]
+
+        model_price = make_regressor(model_type)
+        model_hybrid = make_regressor(model_type)
+        model_price.fit(Xp_tr, y_tr)
+        model_hybrid.fit(Xh_tr, y_tr)
+
+        pred_p = model_price.predict(Xp_te)
+        pred_h = model_hybrid.predict(Xh_te)
+        pred_a = fit_predict_arima(y_tr, y_te)
+
+        m_arima = compute_metrics(y_te, pred_a)
+        m_price = compute_metrics(y_te, pred_p)
+        m_hybrid = compute_metrics(y_te, pred_h)
+
+        window_info.append({'window': w, 'train_end': train_end, 'test_start': train_end, 'test_end': test_end})
+        models_price.append(model_price)
+        models_hybrid.append(model_hybrid)
+        preds_price.append(pred_p)
+        preds_hybrid.append(pred_h)
+        preds_arima.append(pred_a)
+        metrics_by_window.append({'window': w, 'arima': m_arima, 'price': m_price, 'hybrid': m_hybrid})
+
+        train_end = test_end
+        if test_end == n:
+            break
+
+    results.update({
+        'window_info': window_info,
+        'models_price': models_price,
+        'models_hybrid': models_hybrid,
+        'preds_price': preds_price,
+        'preds_hybrid': preds_hybrid,
+        'preds_arima': preds_arima,
+        'metrics_by_window': metrics_by_window,
+    })
+
+    if save_models and JOBLIB_AVAILABLE:
+        from pathlib import Path
+        out = Path(save_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        # save last-window models + per-window preds
+        if models_price:
+            joblib.dump(models_price[-1], out / 'model_price_last.pkl')
+        if models_hybrid:
+            joblib.dump(models_hybrid[-1], out / 'model_hybrid_last.pkl')
+        # save predictions per window
+        for info, p_p, p_h, p_a in zip(window_info, preds_price, preds_hybrid, preds_arima):
+            w = info['window']
+            np.save(out / f'window_{w}_pred_price.npy', p_p)
+            np.save(out / f'window_{w}_pred_hybrid.npy', p_h)
+            np.save(out / f'window_{w}_pred_arima.npy', p_a)
+
     return results
 
 
@@ -161,7 +381,7 @@ def train_shock_detection_model(
     val_fraction=0.2,
     select_topk_news_features=True,
     topk_news_features=40,
-    apply_pca_to_news=False  # Disabled by default - strict selection already reduces features
+    apply_pca_to_news=False
 ) -> Dict:
     """
     Train models for shock detection (binary classification).
@@ -182,8 +402,7 @@ def train_shock_detection_model(
     X_news_train_scaled = scaler_news.fit_transform(X_news_train) if X_news_train.shape[1] > 0 else X_news_train
     X_news_test_scaled = scaler_news.transform(X_news_test) if X_news_test.shape[1] > 0 else X_news_test
     
-    # Feature selection for news features - keep most valuable while preserving signal
-    # Balance between signal and noise: increased topk to allow more news features
+    # Feature selection for news features
     selected_news_indices = None
     if select_topk_news_features and X_news_train.shape[1] > 0 and topk_news_features < X_news_train.shape[1]:
         print(f"   🔍 Selecting top {topk_news_features} most valuable news features from {X_news_train.shape[1]}...")
@@ -191,14 +410,14 @@ def train_shock_detection_model(
             from sklearn.feature_selection import mutual_info_classif, f_classif
             from scipy.stats import pearsonr
             
-            # Method 1: Mutual Information (captures non-linear relationships)
+            # Mutual Information
             mi_scores = mutual_info_classif(X_news_train, y_shock_train, random_state=random_state)
             
-            # Method 2: F-statistic (linear relationships)
+            # F-statistic
             f_scores, _ = f_classif(X_news_train, y_shock_train)
             f_scores = np.nan_to_num(f_scores, nan=0.0, posinf=0.0, neginf=0.0)
             
-            # Method 3: Correlation with target (direct predictive power)
+            # Correlation with target
             corr_scores = np.array([
                 abs(pearsonr(X_news_train[:, i], y_shock_train)[0]) 
                 if not np.isnan(X_news_train[:, i]).any() else 0.0
@@ -206,7 +425,7 @@ def train_shock_detection_model(
             ])
             corr_scores = np.nan_to_num(corr_scores, nan=0.0)
             
-            # Method 4: Train a quick baseline model to get feature importance
+            # Quick model for feature importances
             try:
                 from sklearn.ensemble import RandomForestClassifier
                 rf_quick = RandomForestClassifier(n_estimators=50, max_depth=5, random_state=random_state, n_jobs=-1)
@@ -221,17 +440,12 @@ def train_shock_detection_model(
             corr_norm = (corr_scores - corr_scores.min()) / (corr_scores.max() - corr_scores.min() + 1e-10)
             imp_norm = (importance_scores - importance_scores.min()) / (importance_scores.max() - importance_scores.min() + 1e-10)
             
-            # Weighted combination: prioritize correlation and MI (strongest signals)
-            # Even more weight on correlation for direct predictive power
             final_scores = 0.6 * corr_norm + 0.3 * mi_norm + 0.07 * imp_norm + 0.03 * f_norm
             
-            # Very strict filtering: require top 10% by correlation OR top 10% by MI
-            # This ensures we only keep the absolute best features
             min_corr_threshold = np.percentile(corr_scores, 90)  # Top 10% by correlation
             min_mi_threshold = np.percentile(mi_scores, 90)  # Top 10% by MI
             min_combined_threshold = np.percentile(final_scores, 80)  # Top 20% by combined score
             
-            # Combined filter: must be in top 10% by correlation OR top 10% by MI, AND top 20% by combined
             valid_mask = (
                 (corr_scores >= min_corr_threshold) | 
                 (mi_scores >= min_mi_threshold)
@@ -273,12 +487,9 @@ def train_shock_detection_model(
         X_news_train_scaled = scaler_news.fit_transform(X_news_train) if X_news_train.shape[1] > 0 else X_news_train
         X_news_test_scaled = scaler_news.transform(X_news_test) if X_news_test.shape[1] > 0 else X_news_test
     
-    # Apply PCA to news features only if still high-dimensional after strict selection
-    # With stricter selection (25 features), PCA is usually not needed
     if apply_pca_to_news and X_news_train_scaled.shape[1] > 30:
         try:
             from sklearn.decomposition import PCA
-            # More conservative PCA: keep 95% variance (preserve more signal)
             n_components = min(25, int(X_news_train_scaled.shape[1] * 0.9))  # Keep 90% of features or max 25
             pca_news = PCA(n_components=n_components, random_state=random_state)
             X_news_train_pca = pca_news.fit_transform(X_news_train_scaled)
@@ -296,14 +507,13 @@ def train_shock_detection_model(
     else:
         print(f"   ✅ Using {X_news_train_scaled.shape[1]} selected news features (no PCA needed)")
     
-    # 2. Create price-news interaction features (enhanced with multiple interaction types)
-    # Use smarter feature selection and diverse interaction types
+    # Price-news interaction features
     if X_news_train_scaled.shape[1] > 0 and X_price_train_scaled.shape[1] > 0:
         try:
             from scipy.stats import pearsonr
             from sklearn.feature_selection import mutual_info_classif
             
-            # Select top price features by correlation with target (smarter selection)
+            # Select top price features
             price_corr = np.array([
                 abs(pearsonr(X_price_train_scaled[:, i], y_shock_train[:len(X_price_train_scaled)])[0])
                 if not np.isnan(X_price_train_scaled[:, i]).any() else 0.0
@@ -311,11 +521,10 @@ def train_shock_detection_model(
             ])
             price_corr = np.nan_to_num(price_corr, nan=0.0)
             
-            # Also use mutual information for price features
+            # Mutual information for price features (optional)
             try:
                 price_mi = mutual_info_classif(X_price_train_scaled, y_shock_train[:len(X_price_train_scaled)], random_state=random_state)
                 price_mi = np.nan_to_num(price_mi, nan=0.0)
-                # Combine correlation and MI (weighted)
                 price_scores = 0.6 * price_corr + 0.4 * (price_mi / (price_mi.max() + 1e-10))
             except:
                 price_scores = price_corr
@@ -323,7 +532,7 @@ def train_shock_detection_model(
             # Select top 4 price features (further reduced for strongest interactions only)
             top_price_idx = np.argsort(price_scores)[-min(4, X_price_train_scaled.shape[1]):]
             
-            # Select top news features by correlation and MI (focus on strongest signals)
+            # Select top news features
             news_corr = np.array([
                 abs(pearsonr(X_news_train_scaled[:, i], y_shock_train[:len(X_news_train_scaled)])[0])
                 if not np.isnan(X_news_train_scaled[:, i]).any() else 0.0
@@ -334,7 +543,6 @@ def train_shock_detection_model(
             try:
                 news_mi = mutual_info_classif(X_news_train_scaled, y_shock_train[:len(X_news_train_scaled)], random_state=random_state)
                 news_mi = np.nan_to_num(news_mi, nan=0.0)
-                # Combine correlation and MI (prioritize correlation for direct signal)
                 news_scores = 0.75 * news_corr + 0.25 * (news_mi / (news_mi.max() + 1e-10))
             except:
                 news_scores = news_corr
@@ -342,8 +550,7 @@ def train_shock_detection_model(
             # Select top 4 news features (further reduced for strongest interactions only)
             top_news_idx = np.argsort(news_scores)[-min(4, X_news_train_scaled.shape[1]):]
             
-            # Create diverse interaction types (multiplication, division, difference)
-            # This captures different types of relationships between price and news
+            # Interaction types: multiply, divide, difference
             n_price_top = len(top_price_idx)
             n_news_top = len(top_news_idx)
             n_interactions_per_type = n_price_top * n_news_top
@@ -358,18 +565,18 @@ def train_shock_detection_model(
                     price_feat = X_price_train_scaled[:, p_idx]
                     news_feat = X_news_train_scaled[:, n_idx]
                     
-                    # Type 1: Multiplication (captures joint effects)
+                    # Multiply
                     interactions_train[:, idx] = price_feat * news_feat
                     interactions_test[:, idx] = X_price_test_scaled[:, p_idx] * X_news_test_scaled[:, n_idx]
                     idx += 1
                     
-                    # Type 2: Division (captures relative effects, avoid division by zero)
+                    # Divide
                     news_feat_safe = news_feat + np.sign(news_feat) * 1e-8  # Add small epsilon
                     interactions_train[:, idx] = price_feat / (news_feat_safe + 1e-8)
                     interactions_test[:, idx] = X_price_test_scaled[:, p_idx] / (X_news_test_scaled[:, n_idx] + 1e-8)
                     idx += 1
                     
-                    # Type 3: Difference (captures absolute differences)
+                    # Difference
                     interactions_train[:, idx] = price_feat - news_feat
                     interactions_test[:, idx] = X_price_test_scaled[:, p_idx] - X_news_test_scaled[:, n_idx]
                     idx += 1
@@ -444,8 +651,6 @@ def train_shock_detection_model(
             )
             model.fit(X_price_tr, y_tr_price)
         elif model_code == 'rf':
-            # Improved Random Forest: balanced depth to avoid overfitting
-            # Reduced depth and increased min_samples to prevent overfitting on imbalanced data
             model = RandomForestClassifier(
                 n_estimators=300,  # Sufficient trees
                 max_depth=10,  # Reduced depth to prevent overfitting
@@ -468,8 +673,6 @@ def train_shock_detection_model(
             model = SVC(kernel='rbf', probability=True, random_state=random_state, class_weight='balanced', C=1.0, gamma='scale')
             model.fit(X_train_svm, y_train_svm)
         elif model_code == 'gbr':
-            # Optimized Gradient Boosting: best model (Proposed Model in article)
-            # Key: more trees, balanced depth, optimal learning rate
             model = GradientBoostingClassifier(
                 n_estimators=400,  # More trees for better learning
                 max_depth=7,  # Balanced depth - deep enough but not too deep
@@ -590,8 +793,6 @@ def train_shock_detection_model(
             )
             model.fit(X_hybrid_tr, y_tr_hybrid)
         elif model_code == 'rf':
-            # Optimized for hybrid features: balanced depth to avoid overfitting
-            # Reduced depth and increased min_samples to prevent overfitting on imbalanced data
             model = RandomForestClassifier(
                 n_estimators=300,  # Sufficient trees
                 max_depth=12,  # Reduced depth to prevent overfitting while capturing interactions
@@ -614,12 +815,9 @@ def train_shock_detection_model(
             model = SVC(kernel='rbf', probability=True, random_state=random_state, class_weight='balanced', C=1.0, gamma='scale')
             model.fit(X_train_svm, y_train_svm)
         elif model_code == 'gbr':
-            # Optimized Gradient Boosting for hybrid features (Proposed Model in article)
             n_negative = (y_tr_hybrid == 0).sum()
             n_positive = (y_tr_hybrid == 1).sum()
             if n_positive > 0 and n_negative > 0:
-                # Best hyperparameters for hybrid model - optimized for performance with high-quality features
-                # Increased capacity to learn from strong news signals
                 model = GradientBoostingClassifier(
                     n_estimators=600,  # More trees for better learning
                     max_depth=10,  # Deeper to capture complex interactions

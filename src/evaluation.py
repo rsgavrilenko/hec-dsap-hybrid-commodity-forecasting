@@ -348,38 +348,291 @@ def plot_feature_importance_shock(model, feature_names, top_n=20, save_dir='arti
         traceback.print_exc()
 
 
-# Placeholder functions for regression tasks
 def compare_models(results):
-    """Compare models for regression tasks."""
-    return None, None, None, None
+    """Compare models for regression tasks (single split)."""
+    if results is None or results.get('use_walk_forward'):
+        return None, None, None, None
+
+    y_test = results.get('y_test')
+    if y_test is None:
+        return None, None, None, None
+
+    pred_arima = results.get('pred_arima')
+    pred_price = results.get('pred_price')
+    pred_hybrid = results.get('pred_hybrid')
+
+    def _safe(d):
+        return d if isinstance(d, dict) else None
+
+    return _safe(results.get('metrics_arima')), _safe(results.get('metrics_price')), _safe(results.get('metrics_hybrid')), None
 
 def compare_models_walk_forward(results):
-    """Compare models using walk-forward validation."""
-    return {}, {}
+    """Compare models using walk-forward validation (aggregate over windows)."""
+    if results is None or not results.get('use_walk_forward'):
+        return {}, {}
+
+    metrics_by_window = results.get('metrics_by_window', [])
+    if not metrics_by_window:
+        return {}, {}
+
+    # Build a tidy frame
+    rows = []
+    for entry in metrics_by_window:
+        w = entry.get('window')
+        for model_key in ['arima', 'price', 'hybrid']:
+            m = entry.get(model_key, {})
+            rows.append({
+                'window': w,
+                'model': model_key,
+                'RMSE': m.get('RMSE', np.nan),
+                'MAE': m.get('MAE', np.nan),
+                'R²': m.get('R²', np.nan),
+                'Directional Accuracy': m.get('Directional Accuracy', np.nan),
+            })
+    window_df = pd.DataFrame(rows)
+
+    aggregated = {}
+    for model_key in ['arima', 'price', 'hybrid']:
+        sub = window_df[window_df['model'] == model_key]
+        aggregated[model_key] = {}
+        for metric in ['RMSE', 'MAE', 'R²', 'Directional Accuracy']:
+            aggregated[model_key][metric] = {
+                'mean': float(sub[metric].mean()),
+                'median': float(sub[metric].median()),
+            }
+
+    return aggregated, window_df
 
 def plot_forecasts(results, save_path):
-    """Plot forecast comparisons."""
-    pass
+    """Plot forecast comparisons for regression tasks."""
+    if results is None:
+        return
+    save_path = Path(save_path)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if results.get('use_walk_forward'):
+        # Plot last window only (clean, aligns with report use)
+        window_info = results.get('window_info', [])
+        if not window_info:
+            return
+        last = window_info[-1]
+        w = last['window']
+        preds_arima = results.get('preds_arima', [])
+        preds_price = results.get('preds_price', [])
+        preds_hybrid = results.get('preds_hybrid', [])
+        if w >= len(preds_arima) or w >= len(preds_price) or w >= len(preds_hybrid):
+            return
+
+        y_start = last['test_start']
+        y_end = last['test_end']
+        # We don't store full y, so plot predictions only with index range
+        x = np.arange(y_start, y_end)
+        plt.figure(figsize=(12, 5))
+        plt.plot(x, preds_arima[w], label='ARIMA', alpha=0.9)
+        plt.plot(x, preds_price[w], label='ML Baseline (Price)', alpha=0.9)
+        plt.plot(x, preds_hybrid[w], label='Hybrid (Price+News)', alpha=0.9)
+        plt.title(f'Forecasts (last walk-forward window {w})')
+        plt.xlabel('Time index')
+        plt.ylabel('Prediction')
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.close()
+        return
+
+    y_test = results.get('y_test')
+    pred_arima = results.get('pred_arima')
+    pred_price = results.get('pred_price')
+    pred_hybrid = results.get('pred_hybrid')
+    if y_test is None or pred_arima is None or pred_price is None or pred_hybrid is None:
+        return
+
+    x = np.arange(len(y_test))
+    plt.figure(figsize=(12, 5))
+    plt.plot(x, y_test, label='Actual', color='black', linewidth=2, alpha=0.8)
+    plt.plot(x, pred_arima, label='ARIMA', alpha=0.9)
+    plt.plot(x, pred_price, label='ML Baseline (Price)', alpha=0.9)
+    plt.plot(x, pred_hybrid, label='Hybrid (Price+News)', alpha=0.9)
+    plt.title('Forecast comparison (test split)')
+    plt.xlabel('Test index')
+    plt.ylabel('Target')
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
 
 def plot_feature_importance(model, feature_names, top_n=20, save_path=None):
-    """Plot feature importance."""
-    pass
+    """Plot feature importance (works for tree models and linear models)."""
+    if model is None:
+        return
+    if save_path is None:
+        return
+    save_path = Path(save_path)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if hasattr(model, 'feature_importances_'):
+        importances = np.asarray(model.feature_importances_)
+    elif hasattr(model, 'coef_'):
+        coef = np.asarray(model.coef_).reshape(-1)
+        importances = np.abs(coef)
+    else:
+        return
+
+    if not feature_names or len(feature_names) != len(importances):
+        feature_names = [f'feature_{i}' for i in range(len(importances))]
+
+    idx = np.argsort(importances)[-top_n:][::-1]
+    names = [feature_names[i] for i in idx]
+    vals = importances[idx]
+
+    plt.figure(figsize=(10, max(6, top_n * 0.35)))
+    plt.barh(range(len(vals)), vals, color='steelblue', alpha=0.85)
+    plt.yticks(range(len(vals)), names)
+    plt.gca().invert_yaxis()
+    plt.title(f'Top {top_n} Feature Importances')
+    plt.xlabel('Importance')
+    plt.grid(True, axis='x', alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
 
 def plot_correlation_heatmap(df, feature_names, save_path=None):
-    """Plot correlation heatmap."""
-    pass
+    """Plot correlation heatmap for selected features."""
+    if save_path is None:
+        return
+    save_path = Path(save_path)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    if df is None or not feature_names:
+        return
+
+    cols = [c for c in feature_names if c in df.columns]
+    if len(cols) < 2:
+        return
+
+    corr = df[cols].corr()
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(corr, cmap='coolwarm', center=0, square=True, cbar_kws={'shrink': 0.8})
+    plt.title('Feature Correlation Heatmap')
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
 
 def create_summary_table(results, save_path=None):
-    """Create summary metrics table."""
-    return pd.DataFrame()
+    """Create summary metrics table for regression tasks."""
+    if results is None:
+        return pd.DataFrame()
+
+    rows = []
+    if results.get('use_walk_forward'):
+        _, window_df = compare_models_walk_forward(results)
+        if isinstance(window_df, pd.DataFrame) and len(window_df) > 0:
+            # aggregate across windows
+            for model_key in ['arima', 'price', 'hybrid']:
+                sub = window_df[window_df['model'] == model_key]
+                rows.append({
+                    'model': model_key,
+                    'RMSE_mean': sub['RMSE'].mean(),
+                    'RMSE_median': sub['RMSE'].median(),
+                    'MAE_mean': sub['MAE'].mean(),
+                    'MAE_median': sub['MAE'].median(),
+                    'R2_mean': sub['R²'].mean(),
+                    'R2_median': sub['R²'].median(),
+                    'DA_mean': sub['Directional Accuracy'].mean(),
+                    'DA_median': sub['Directional Accuracy'].median(),
+                })
+            summary = pd.DataFrame(rows)
+        else:
+            summary = pd.DataFrame()
+    else:
+        ma = results.get('metrics_arima', {})
+        mp = results.get('metrics_price', {})
+        mh = results.get('metrics_hybrid', {})
+        for model_key, m in [('arima', ma), ('price', mp), ('hybrid', mh)]:
+            if isinstance(m, dict) and m:
+                rows.append({'model': model_key, **m})
+        summary = pd.DataFrame(rows)
+
+    if save_path is not None and len(summary) > 0:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        summary.to_csv(save_path, index=False)
+    return summary
+
+
+def plot_regression_metrics_table(summary_df: pd.DataFrame, save_path: str, title: str = 'Regression Metrics Summary'):
+    """
+    Render a compact table (PNG) from a regression summary DataFrame for reports.
+    """
+    if summary_df is None or len(summary_df) == 0:
+        return
+    save_path = Path(save_path)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+
+    df = summary_df.copy()
+    # Keep a small, report-friendly set of columns
+    preferred_cols = [c for c in df.columns if c in [
+        'model', 'RMSE', 'MAE', 'R²', 'Directional Accuracy',
+        'RMSE_median', 'MAE_median', 'R2_median', 'DA_median',
+        'RMSE_mean', 'MAE_mean', 'R2_mean', 'DA_mean',
+    ]]
+    if preferred_cols:
+        df = df[preferred_cols]
+
+    # Round numeric cols for display
+    for c in df.columns:
+        if c != 'model' and pd.api.types.is_numeric_dtype(df[c]):
+            df[c] = df[c].astype(float).round(4)
+
+    fig_h = max(3.5, 0.5 + 0.5 * (len(df) + 1))
+    fig_w = max(10, 1.2 * len(df.columns))
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    ax.axis('off')
+
+    table = ax.table(
+        cellText=df.values,
+        colLabels=df.columns,
+        cellLoc='center',
+        loc='center',
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1, 1.6)
+
+    # Style header row
+    for j in range(len(df.columns)):
+        cell = table[(0, j)]
+        cell.set_facecolor('#4CAF50')
+        cell.get_text().set_color('white')
+        cell.get_text().set_weight('bold')
+
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=12)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
 
 def explain_with_shap(model, X_test, feature_names, top_n=20, save_dir='artifacts/shap'):
     """Generate SHAP explanations for regression models."""
-    pass
+    if not SHAP_AVAILABLE or model is None:
+        return
+    try:
+        save_dir = Path(save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        # TreeExplainer for tree models
+        explainer = shap.Explainer(model)
+        X_small = X_test[: min(len(X_test), 500)]
+        shap_values = explainer(X_small)
+        shap.summary_plot(shap_values, feature_names=feature_names, show=False, max_display=top_n)
+        plt.tight_layout()
+        plt.savefig(save_dir / 'shap_summary.png', dpi=150, bbox_inches='tight')
+        plt.close()
+    except Exception:
+        return
 
 def analyze_prediction_errors(results, feature_names, X_test):
     """Analyze prediction errors."""
-    pass
+    return
 
 
 def plot_price_with_shocks(df: pd.DataFrame, results: Dict, save_dir: str = 'figures'):
