@@ -144,9 +144,11 @@ def load_copper_prices(file_path: Optional[str] = None) -> pd.DataFrame:
         >>> print(prices.head())
     """
     if file_path is None:
-        # Default path relative to this file
-        data_dir = Path(__file__).parent / "copper"
-        file_path = data_dir / "data_copper_lme_all_years.csv"
+        # Prefer Week-11 structure: data/raw/copper/...
+        project_root = Path(__file__).resolve().parents[2]
+        preferred = project_root / "data" / "raw" / "copper" / "data_copper_lme_all_years.csv"
+        legacy = Path(__file__).parent / "copper" / "data_copper_lme_all_years.csv"
+        file_path = preferred if preferred.exists() else legacy
 
     # Load CSV
     df = pd.read_csv(file_path)
@@ -198,9 +200,11 @@ def load_news_data(
         DataFrame with news data, with date column as datetime
     """
     if file_path is None:
-        # Default path relative to this file
-        data_dir = Path(__file__).parent / "news"
-        file_path = data_dir / "copper_news_all_sources.csv"
+        # Prefer Week-11 structure: data/raw/news/...
+        project_root = Path(__file__).resolve().parents[2]
+        preferred = project_root / "data" / "raw" / "news" / "copper_news_all_sources.csv"
+        legacy = Path(__file__).parent / "news" / "copper_news_all_sources.csv"
+        file_path = preferred if preferred.exists() else legacy
 
     # Load CSV
     df = pd.read_csv(file_path)

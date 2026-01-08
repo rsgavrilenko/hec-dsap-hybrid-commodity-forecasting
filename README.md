@@ -57,6 +57,19 @@ This project combines time-series forecasting with news sentiment analysis to pr
    - Saved artifacts in `artifacts/` (models, predictions, detailed plots)
    - Saved figures in `figures/` (visualizations for reports: shock detection results, price with shocks, top news events)
 
+## Report (PDF)
+Write the report in `project_report.md` and generate `project_report.pdf` (pandoc recommended):
+
+```bash
+pandoc project_report.md -o project_report.pdf --pdf-engine=xelatex --toc --number-sections
+```
+
+## Figures for the report
+- Shock detection plots are saved in `figures/` (e.g., `shock_detection_results.png`, `price_with_shocks.png`).
+- Regression plots (when `target_mode` is `price` or `return`) are saved with a suffix:
+  - `figures/forecasts_price.png`, `figures/summary_metrics_price.png` (and `.csv`)
+  - `figures/forecasts_return.png`, `figures/summary_metrics_return.png` (and `.csv`)
+
 ### Target Definition (Important)
 
 The pipeline supports three prediction modes:
@@ -86,6 +99,14 @@ You can switch the target mode in `main.py`:
 ├── environment.yml              # Conda environment definition
 ├── README.md                    # This file
 ├── PROPOSAL.md                  # Project proposal
+├── project_report.md            # Report source (generate project_report.pdf)
+├── data/
+│   └── raw/
+│       ├── copper/
+│       │   └── data_copper_lme_all_years.csv
+│       └── news/
+│           └── copper_news_all_sources.csv
+├── results/                     # Outputs created by running main.py (plots/metrics)
 ├── artifacts/                   # Generated outputs (models, predictions, plots)
 │   └── shap/                    # SHAP explanations
 ├── figures/                     # Visualization outputs for reports
@@ -96,10 +117,8 @@ You can switch the target mode in `main.py`:
 │   ├── data/
 │   │   ├── data_loader.py       # Unified data loading functions
 │   │   ├── copper/
-│   │   │   └── data_copper_lme_all_years.csv  # Copper price data
 │   │   └── news/
-│   │       ├── news_data.py     # News data collection
-│   │       └── copper_news_all_sources.csv  # Collected news data
+│   │       └── news_data.py     # News data collection (writes to data/raw/news)
 │   ├── features/
 │   │   ├── price_features.py     # Price and stock feature creation
 │   │   └── sentiment_features.py # News sentiment and heuristic features

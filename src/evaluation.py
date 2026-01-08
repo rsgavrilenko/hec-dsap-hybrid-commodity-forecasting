@@ -739,8 +739,11 @@ def plot_top_news_events(df: pd.DataFrame, results: Dict, save_dir: str = 'figur
         print("⚠️  price_shock column not found")
         return
     
-    # Load raw news data to get titles
-    news_path = Path('src/data/news/copper_news_all_sources.csv')
+    # Load raw news data to get titles (prefer Week-11 data/raw layout)
+    project_root = Path(__file__).resolve().parents[1]
+    news_path = project_root / 'data' / 'raw' / 'news' / 'copper_news_all_sources.csv'
+    if not news_path.exists():
+        news_path = Path('src/data/news/copper_news_all_sources.csv')
     if not news_path.exists():
         print(f"⚠️  News file not found: {news_path}")
         return
@@ -1055,7 +1058,10 @@ def plot_news_statistics(save_dir: str = 'figures'):
     3. Specific news types (mine closures, sanctions, etc.)
     """
     # Load raw news data
-    news_path = Path('src/data/news/copper_news_all_sources.csv')
+    project_root = Path(__file__).resolve().parents[1]
+    news_path = project_root / 'data' / 'raw' / 'news' / 'copper_news_all_sources.csv'
+    if not news_path.exists():
+        news_path = Path('src/data/news/copper_news_all_sources.csv')
     if not news_path.exists():
         print(f"⚠️  News file not found: {news_path}")
         return
