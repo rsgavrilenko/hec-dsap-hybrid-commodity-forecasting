@@ -51,10 +51,11 @@ This project combines time-series forecasting with news sentiment analysis to pr
    - Compare model performance and show results
 
 3. **Expected output**:
-   - Model comparison table with RMSE, MAE, R², and Directional Accuracy
+   - Model comparison table with RMSE, MAE, R², and Directional Accuracy (or AUC, F1 for shock detection)
    - Winner model identification
    - Performance improvement metrics
-   - Saved artifacts in `artifacts/` (plots, metrics CSV, saved models/predictions)
+   - Saved artifacts in `artifacts/` (models, predictions, detailed plots)
+   - Saved figures in `figures/` (visualizations for reports: shock detection results, price with shocks, top news events)
 
 ### Target Definition (Important)
 
@@ -85,6 +86,12 @@ You can switch the target mode in `main.py`:
 ├── environment.yml              # Conda environment definition
 ├── README.md                    # This file
 ├── PROPOSAL.md                  # Project proposal
+├── artifacts/                   # Generated outputs (models, predictions, plots)
+│   └── shap/                    # SHAP explanations
+├── figures/                     # Visualization outputs for reports
+│   └── shock_detection_results.png
+│   └── price_with_shocks.png
+│   └── top_news_events.png
 ├── src/
 │   ├── data/
 │   │   ├── data_loader.py       # Unified data loading functions

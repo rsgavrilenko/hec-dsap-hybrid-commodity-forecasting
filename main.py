@@ -22,7 +22,8 @@ from src.evaluation import (
     plot_forecasts, plot_feature_importance, plot_correlation_heatmap,
     create_summary_table, explain_with_shap, analyze_prediction_errors,
     print_shock_detection_metrics, plot_shock_detection_results,
-    explain_shock_detection_with_shap
+    plot_feature_importance_shock, plot_price_with_shocks, plot_top_news_events,
+    plot_news_statistics
 )
 from pathlib import Path
 import numpy as np
@@ -126,16 +127,25 @@ def main():
     tune_hyperparams = False  # Set to True for hyperparameter tuning (slower)
     run_shap = True  # Set True only if you installed shap (optional)
     select_topk_news_features = True  # Select top-K news features per window (TRAIN-only)
-    topk_news_features = 40  # Increased to capture more signal from new weighted/intensity features
+    topk_news_features = 50  # Increased from 25 to allow more news signal (balance between signal and noise)
     
     if target_mode == 'shock':
         # Shock detection: binary classification
         print("🔍 Running SHOCK DETECTION mode (binary classification)")
         print(f"   Target distribution: {np.bincount(y.astype(int))}")
         from sklearn.model_selection import train_test_split
-        X_price_train, X_price_test, X_news_train, X_news_test, X_hybrid_train, X_hybrid_test, y_train, y_test = train_test_split(
-            X_price, X_news, X_hybrid, y, test_size=0.2, random_state=42, stratify=y
-        )
+        # Use time-based split instead of random to preserve chronological order
+        # This is more realistic for time-series forecasting
+        split_idx = int(len(y) * 0.8)
+        X_price_train, X_price_test = X_price[:split_idx], X_price[split_idx:]
+        X_news_train, X_news_test = X_news[:split_idx], X_news[split_idx:]
+        X_hybrid_train, X_hybrid_test = X_hybrid[:split_idx], X_hybrid[split_idx:]
+        y_train, y_test = y[:split_idx], y[split_idx:]
+        
+        # Also store indices for visualization
+        train_indices = np.arange(split_idx)
+        test_indices = np.arange(split_idx, len(y))
+        
         print(f"   Train: {len(y_train)} samples ({y_train.sum()} shocks, {y_train.mean():.1%})")
         print(f"   Test: {len(y_test)} samples ({y_test.sum()} shocks, {y_test.mean():.1%})")
         results = train_shock_detection_model(
@@ -148,8 +158,9 @@ def main():
             select_topk_news_features=select_topk_news_features,  # Select top-K news features
             topk_news_features=topk_news_features  # Number of top news features to keep
         )
-        # Store test data for later use in visualizations
+        # Store test data and indices for later use in visualizations
         results['X_hybrid_test'] = X_hybrid_test
+        results['test_indices'] = test_indices  # Store indices for proper date mapping
     else:
         # Regression: return/price prediction
         results = train_models(
@@ -180,12 +191,28 @@ def main():
         # Create visualizations
         output_dir = Path('artifacts')
         output_dir.mkdir(exist_ok=True)
-        plot_shock_detection_results(results, save_dir=str(output_dir))
+        figures_dir = Path('figures')
+        figures_dir.mkdir(exist_ok=True)
         
-        # SHAP explanations (optional) - use best hybrid model
+        # Main shock detection results plot (saved to both artifacts and figures)
+        plot_shock_detection_results(results, save_dir='artifacts')
+        
+        # Price with shocks visualization
+        plot_price_with_shocks(df, results, save_dir='figures')
+        
+        # Top news events visualization (reduced to 12 to avoid overlap)
+        plot_top_news_events(df, results, save_dir='figures', top_n=12)
+        
+        # Comprehensive news statistics
+        print("\n" + "="*80)
+        print("📰 Generating comprehensive news statistics...")
+        print("="*80)
+        plot_news_statistics(save_dir='figures')
+        
+        # Feature importance plot (replaces SHAP) - use best hybrid model
         if run_shap:
             print("\n" + "="*80)
-            print("🔍 Generating SHAP explanations for shock detection...")
+            print("🔍 Generating feature importance plot for shock detection...")
             print("="*80)
             # Use best hybrid model if available, otherwise fallback to default
             if 'all_models' in results and results['all_models']:
@@ -199,35 +226,37 @@ def main():
                 
                 if best_model_key and best_model_key in results['all_models']:
                     best_model = results['all_models'][best_model_key]
-                    X_test_scaled = results.get('X_hybrid_test_scaled')
-                    if X_test_scaled is not None:
-                        print(f"   Using {best_model_key} (AUC={best_auc:.3f}) for SHAP")
-                        explain_shock_detection_with_shap(
-                            best_model,
-                            X_test_scaled,
-                            feature_names['hybrid'],
-                            top_n=20,
-                            save_dir=str(output_dir / 'shap')
-                        )
-                    else:
-                        print("⚠️  X_hybrid_test_scaled not available for SHAP")
-                else:
-                    print("⚠️  Best hybrid model not found for SHAP")
-            else:
-                # Fallback to default model
-                X_hybrid_test = results.get('X_hybrid_test')
-                if X_hybrid_test is not None:
-                    explain_shock_detection_with_shap(
-                        results['model_hybrid'],
-                        X_hybrid_test,
-                        feature_names['hybrid'],
+                    print(f"   Using {best_model_key} (AUC={best_auc:.3f}) for feature importance")
+                    # Use stored feature names if available, otherwise fallback
+                    importance_feature_names = results.get('feature_names_hybrid', feature_names.get('hybrid', None))
+                    if importance_feature_names is None:
+                        # Try to get from original feature names
+                        importance_feature_names = feature_names.get('hybrid', None)
+                    if importance_feature_names is None:
+                        print("   ⚠️  Feature names not available, using default names")
+                        importance_feature_names = None
+                    plot_feature_importance_shock(
+                        best_model,
+                        importance_feature_names,
                         top_n=20,
-                        save_dir=str(output_dir / 'shap')
+                        save_dir='artifacts/shap'  # Will be saved to both artifacts and figures
                     )
                 else:
-                    print("⚠️  X_hybrid_test not available for SHAP")
+                    print("⚠️  Best hybrid model not found for feature importance")
+            else:
+                # Fallback to default model
+                if 'model_hybrid' in results:
+                    importance_feature_names = results.get('feature_names_hybrid', feature_names.get('hybrid', None))
+                    plot_feature_importance_shock(
+                        results['model_hybrid'],
+                        importance_feature_names,
+                        top_n=20,
+                        save_dir='artifacts/shap'  # Will be saved to both artifacts and figures
+                    )
+                else:
+                    print("⚠️  Hybrid model not available for feature importance")
         else:
-            print("\nℹ️  SHAP disabled (set run_shap=True to enable)")
+            print("\nℹ️  Feature importance disabled (set run_shap=True to enable)")
         
         print("\n✅ Shock detection evaluation complete")
         return results, None, None, None
