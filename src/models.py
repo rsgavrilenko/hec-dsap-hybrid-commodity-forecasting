@@ -161,7 +161,7 @@ def prepare_features(df: pd.DataFrame, target_column: str = 'target_price') -> T
 
 def train_models(X_price, X_news, X_hybrid, y, test_size=0.2, random_state=42, 
                  use_walk_forward=False, n_windows=5, model_type='gbr', 
-                 tune_hyperparams=False, save_models=False, save_dir='artifacts',
+                 tune_hyperparams=False, save_models=False, save_dir='results/models',
                  feature_names=None, select_topk_news_features=False, topk_news_features=15):
     """
     Train baseline and hybrid models for price/return prediction.

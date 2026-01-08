@@ -54,8 +54,9 @@ This project combines time-series forecasting with news sentiment analysis to pr
    - Model comparison table with RMSE, MAE, R², and Directional Accuracy (or AUC, F1 for shock detection)
    - Winner model identification
    - Performance improvement metrics
-   - Saved artifacts in `artifacts/` (models, predictions, detailed plots)
-   - Saved figures in `figures/` (visualizations for reports: shock detection results, price with shocks, top news events)
+   - All outputs saved to `results/`:
+     - Plots and visualizations in `results/figures/`
+     - Model files (if enabled) in `results/models/`
 
 ## Report (PDF)
 Write the report in `project_report.md` and generate `project_report.pdf` (pandoc recommended):
@@ -65,10 +66,11 @@ pandoc project_report.md -o project_report.pdf --pdf-engine=xelatex --toc --numb
 ```
 
 ## Figures for the report
-- Shock detection plots are saved in `figures/` (e.g., `shock_detection_results.png`, `price_with_shocks.png`).
-- Regression plots (when `target_mode` is `price` or `return`) are saved with a suffix:
-  - `figures/forecasts_price.png`, `figures/summary_metrics_price.png` (and `.csv`)
-  - `figures/forecasts_return.png`, `figures/summary_metrics_return.png` (and `.csv`)
+All visualizations are saved in `results/figures/`:
+- Shock detection plots: `shock_detection_results.png`, `price_with_shocks.png`, `top_news_events_table.png`, `news_statistics.png`
+- Regression plots (when `target_mode` is `price` or `return`):
+  - `forecasts_price.png`, `summary_metrics_price.png` (and `.csv`)
+  - `forecasts_return.png`, `summary_metrics_return.png` (and `.csv`)
 
 ### Target Definition (Important)
 
@@ -112,13 +114,9 @@ You can switch the target mode in `main.py`:
 │       ├── copper_data_parsing.py        # Price collection utility (optional)
 │       ├── copper_visualization.py       # Price/stock plot utility (optional)
 │       └── copper_price_stock_timeseries.png
-├── results/                     # Outputs created by running main.py (plots/metrics)
-├── artifacts/                   # Generated outputs (models, predictions, plots)
-│   └── shap/                    # SHAP explanations
-├── figures/                     # Visualization outputs for reports
-│   └── shock_detection_results.png
-│   └── price_with_shocks.png
-│   └── top_news_events.png
+├── results/                     # Outputs created by running main.py
+│   ├── figures/                 # All plots and visualizations
+│   └── models/                  # Saved model files (if save_models=True)
 ├── src/
 │   ├── data_loader.py           # Data loading / alignment
 │   ├── features/

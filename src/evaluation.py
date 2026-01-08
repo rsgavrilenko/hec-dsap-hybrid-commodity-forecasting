@@ -113,7 +113,7 @@ def print_shock_detection_metrics(results: Dict, verbose: bool = True):
             print(f"   {model_names.get(model_code, model_code)}: {improvement:+.3f} AUC")
 
 
-def plot_shock_detection_results(results: Dict, save_dir: str = 'artifacts'):
+def plot_shock_detection_results(results: Dict, save_dir: str = 'results/figures'):
     """Create visualizations for shock detection results."""
     if 'all_metrics' not in results or 'all_test_proba' not in results:
         print("⚠️  Missing data for visualization")
@@ -231,7 +231,7 @@ def plot_shock_detection_results(results: Dict, save_dir: str = 'artifacts'):
     plt.close()
 
 
-def plot_feature_importance_shock(model, feature_names, top_n=20, save_dir='artifacts/shap'):
+def plot_feature_importance_shock(model, feature_names, top_n=20, save_dir='results/figures'):
     """Plot feature importance as bar chart for shock detection model."""
     print(f"   Generating feature importance plot...")
     save_path = Path(save_dir)
@@ -334,12 +334,11 @@ def plot_feature_importance_shock(model, feature_names, top_n=20, save_dir='arti
         
         plt.tight_layout()
         
-        # Save to both artifacts and figures
-        for save_base_dir in ['artifacts', 'figures']:
-            save_path_fig = Path(save_base_dir) / 'shap' / 'feature_importance_shock.png'
-            save_path_fig.parent.mkdir(parents=True, exist_ok=True)
-            plt.savefig(save_path_fig, dpi=150, bbox_inches='tight')
-            print(f"💾 Saved feature importance plot to {save_path_fig}")
+        # Save to results/figures
+        save_path_fig = Path(save_dir) / 'feature_importance_shock.png'
+        save_path_fig.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path_fig, dpi=150, bbox_inches='tight')
+        print(f"💾 Saved feature importance plot to {save_path_fig}")
         plt.close()
         
     except Exception as e:
@@ -612,7 +611,7 @@ def plot_regression_metrics_table(summary_df: pd.DataFrame, save_path: str, titl
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.close(fig)
 
-def explain_with_shap(model, X_test, feature_names, top_n=20, save_dir='artifacts/shap'):
+def explain_with_shap(model, X_test, feature_names, top_n=20, save_dir='results/figures'):
     """Generate SHAP explanations for regression models."""
     if not SHAP_AVAILABLE or model is None:
         return
@@ -635,7 +634,7 @@ def analyze_prediction_errors(results, feature_names, X_test):
     return
 
 
-def plot_price_with_shocks(df: pd.DataFrame, results: Dict, save_dir: str = 'figures'):
+def plot_price_with_shocks(df: pd.DataFrame, results: Dict, save_dir: str = 'results/figures'):
     """
     Plot copper price with shock events highlighted.
     Red markers = all actual shocks
@@ -731,7 +730,7 @@ def plot_price_with_shocks(df: pd.DataFrame, results: Dict, save_dir: str = 'fig
     plt.close()
 
 
-def plot_top_news_events(df: pd.DataFrame, results: Dict, save_dir: str = 'figures', top_n: int = 20):
+def plot_top_news_events(df: pd.DataFrame, results: Dict, save_dir: str = 'results/figures', top_n: int = 20):
     """
     Plot top significant news events (mines, sanctions, etc.) that correlate with shocks.
     """
@@ -1050,7 +1049,7 @@ def plot_top_news_events(df: pd.DataFrame, results: Dict, save_dir: str = 'figur
     print(f"💾 Saved news events CSV to {csv_path}")
 
 
-def plot_news_statistics(save_dir: str = 'figures'):
+def plot_news_statistics(save_dir: str = 'results/figures'):
     """
     Create comprehensive news statistics visualizations:
     1. Distribution by source

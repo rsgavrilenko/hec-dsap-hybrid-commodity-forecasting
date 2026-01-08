@@ -9,8 +9,8 @@ __pycache__/
 # Jupyter Notebooks
 *.ipynb
 
-# Artifacts (plots, models, etc.)
-artifacts/
+# Generated outputs (optional - uncomment if you don't want to track results/)
+# results/
 
 # Temporary analysis scripts
 analyze_shock_definitions.py
