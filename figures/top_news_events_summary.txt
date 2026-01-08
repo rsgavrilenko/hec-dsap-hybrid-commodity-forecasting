@@ -1,0 +1,75 @@
+Top 12 Unique Significant News Events Near Price Shocks
+================================================================================
+
+1. Date: 2008-02-06
+   Shock Date: 2008-02-07
+   Source: CNBC
+   Title: Rio Tinto Rejects Sweetened $147 Billion Bid by BHP - CNBC
+   Text: Rio Tinto Rejects Sweetened $147 Billion Bid by BHP CNBC...
+
+2. Date: 2009-09-29
+   Shock Date: 2009-10-01
+   Source: Historical_2009
+   Title: Conned for her copper: Zambia pays the price for aid - The Ecologist
+   Text: Conned for her copper: Zambia pays the price for aid The Ecologist...
+
+3. Date: 2011-10-26
+   Shock Date: 2011-10-25
+   Source: Historical_2011
+   Title: House votes to boost huge Arizona copper mine - Arizona Capitol Times
+   Text: House votes to boost huge Arizona copper mine Arizona Capitol Times...
+
+4. Date: 2014-12-14
+   Shock Date: 2014-12-16
+   Source: The Guardian
+   Title: Coalition strikes deal with Telstra and Optus over copper wires for NBN - The Guardian
+   Text: Coalition strikes deal with Telstra and Optus over copper wires for NBN The Guardian...
+
+5. Date: 2016-03-03
+   Shock Date: 2016-03-03
+   Source: Historical_2016
+   Title: Lundin Mining Announces Agreement to Acquire Interest in High Grade Copper/Gold Project from Freepor
+   Text: Lundin Mining Announces Agreement to Acquire Interest in High Grade Copper/Gold Project from Freeport Lundin Mining Corporation...
+
+6. Date: 2017-02-10
+   Shock Date: 2017-02-13
+   Source: Historical_2017
+   Title: Major strike at Escondida mine, Chile - IndustriALL
+   Text: Major strike at Escondida mine, Chile IndustriALL...
+
+7. Date: 2018-06-05
+   Shock Date: 2018-06-06
+   Source: Historical_2018
+   Title: Glencore must account for unreported deaths at its Zambia mines - IndustriALL
+   Text: Glencore must account for unreported deaths at its Zambia mines IndustriALL...
+
+8. Date: 2019-08-01
+   Shock Date: 2019-08-02
+   Source: Historical_2019
+   Title: In the 11th Hour Court Halts Copper Mine from Desecrating Native American Tribes’ Ancestral Grounds 
+   Text: In the 11th Hour Court Halts Copper Mine from Desecrating Native American Tribes’ Ancestral Grounds Earthjustice...
+
+9. Date: 2020-09-01
+   Shock Date: 2020-09-04
+   Source: Historical_2020
+   Title: Peru mining sector forecast to see 15% rebou... - BNamericas
+   Text: Peru mining sector forecast to see 15% rebou... BNamericas...
+
+10. Date: 2020-11-26
+   Shock Date: 2020-11-27
+   Source: Historical_2020
+   Title: ERG's Metalkol RTR copper-cobalt plant in DRC signs up to Responsible Minerals Assurance Process - I
+   Text: ERG's Metalkol RTR copper-cobalt plant in DRC signs up to Responsible Minerals Assurance Process International Mining...
+
+11. Date: 2021-06-11
+   Shock Date: 2021-06-14
+   Source: Mining.com
+   Title: Peru copper output at risk as leftist Castillo leads in presidential election -
+   Text: Peru copper output at risk as leftist Castillo leads in presidential election...
+
+12. Date: 2021-10-12
+   Shock Date: 2021-10-13
+   Source: Mining.com_Major_Mines
+   Title: The Largest Copper Mines in the World by Capacity - Elements by Visual Capitalist
+   Text: The Largest Copper Mines in the World by Capacity Elements by Visual Capitalist...
+
