@@ -70,32 +70,76 @@ def create_price_features(
     # Remove last row (no target available)
     df = df[:-1].copy()
     
-    # Lagged prices
-    df['price_lag1'] = df[price_column].shift(1)
-    df['price_lag2'] = df[price_column].shift(2)
-    df['price_lag3'] = df[price_column].shift(3)
-    df['price_lag5'] = df[price_column].shift(5)
+    # Lagged prices (extended set) - fill NaN with forward fill (use last known price)
+    first_price = df[price_column].iloc[0] if len(df) > 0 else 0
+    df['price_lag1'] = df[price_column].shift(1).bfill().fillna(first_price)
+    df['price_lag2'] = df[price_column].shift(2).bfill().fillna(first_price)
+    df['price_lag3'] = df[price_column].shift(3).bfill().fillna(first_price)
+    df['price_lag5'] = df[price_column].shift(5).bfill().fillna(first_price)
+    df['price_lag7'] = df[price_column].shift(7).bfill().fillna(first_price)  # Weekly lag
+    df['price_lag10'] = df[price_column].shift(10).bfill().fillna(first_price)  # Extended lag
     
-    # Returns (percentage change)
-    df['return_lag1'] = df[price_column].pct_change(1, fill_method=None).shift(1)
-    df['return_lag2'] = df[price_column].pct_change(2, fill_method=None).shift(1)
-    df['return_lag5'] = df[price_column].pct_change(5, fill_method=None).shift(1)
+    # Price differences (momentum indicators) - fill NaN with 0
+    df['price_diff_1_2'] = (df['price_lag1'] - df['price_lag2']).fillna(0)  # 1-day momentum
+    df['price_diff_1_5'] = (df['price_lag1'] - df['price_lag5']).fillna(0)  # 5-day momentum
+    df['price_diff_5_10'] = (df['price_lag5'] - df['price_lag10']).fillna(0)  # Longer-term momentum
     
-    # Moving averages
-    df['ma_5'] = df[price_column].rolling(window=5, min_periods=1).mean().shift(1)
-    df['ma_10'] = df[price_column].rolling(window=10, min_periods=1).mean().shift(1)
-    df['ma_20'] = df[price_column].rolling(window=20, min_periods=1).mean().shift(1)
+    # Returns (percentage change) - extended (fill NaN with 0 - no return)
+    df['return_lag1'] = df[price_column].pct_change(1, fill_method=None).shift(1).fillna(0)
+    df['return_lag2'] = df[price_column].pct_change(2, fill_method=None).shift(1).fillna(0)
+    df['return_lag5'] = df[price_column].pct_change(5, fill_method=None).shift(1).fillna(0)
+    df['return_lag7'] = df[price_column].pct_change(7, fill_method=None).shift(1).fillna(0)  # Weekly return
     
-    # Price relative to moving averages
-    df['price_to_ma5'] = df[price_column] / df['ma_5'] - 1
-    df['price_to_ma10'] = df[price_column] / df['ma_10'] - 1
+    # Moving averages (extended) - fill NaN with current price
+    df['ma_5'] = df[price_column].rolling(window=5, min_periods=1).mean().shift(1).fillna(df[price_column])
+    df['ma_10'] = df[price_column].rolling(window=10, min_periods=1).mean().shift(1).fillna(df[price_column])
+    df['ma_20'] = df[price_column].rolling(window=20, min_periods=1).mean().shift(1).fillna(df[price_column])
+    df['ma_50'] = df[price_column].rolling(window=50, min_periods=1).mean().shift(1).fillna(df[price_column])  # Longer-term trend
     
-    # Volatility (rolling standard deviation of returns)
-    df['volatility_5'] = df[price_column].pct_change(fill_method=None).rolling(window=5, min_periods=1).std().shift(1)
-    df['volatility_10'] = df[price_column].pct_change(fill_method=None).rolling(window=10, min_periods=1).std().shift(1)
+    # Price relative to moving averages (fill NaN with 0 - no deviation)
+    df['price_to_ma5'] = (df[price_column] / (df['ma_5'] + 1e-10) - 1).fillna(0)
+    df['price_to_ma10'] = (df[price_column] / (df['ma_10'] + 1e-10) - 1).fillna(0)
+    df['price_to_ma20'] = (df[price_column] / (df['ma_20'] + 1e-10) - 1).fillna(0)
+    df['price_to_ma50'] = (df[price_column] / (df['ma_50'] + 1e-10) - 1).fillna(0)
+    
+    # MA crossovers (trend indicators) - fill NaN with 0
+    df['ma5_ma10_cross'] = ((df['ma_5'] - df['ma_10']) / (df['ma_10'] + 1e-10)).fillna(0)  # Short-term vs medium-term
+    df['ma10_ma20_cross'] = ((df['ma_10'] - df['ma_20']) / (df['ma_20'] + 1e-10)).fillna(0)  # Medium-term vs long-term
+    
+    # Volatility (rolling standard deviation of returns) - extended (fill NaN with 0)
+    returns = df[price_column].pct_change(fill_method=None)
+    df['volatility_5'] = returns.rolling(window=5, min_periods=1).std().shift(1).fillna(0)
+    df['volatility_10'] = returns.rolling(window=10, min_periods=1).std().shift(1).fillna(0)
+    df['volatility_20'] = returns.rolling(window=20, min_periods=1).std().shift(1).fillna(0)  # Longer-term volatility
+    
+    # RSI (Relative Strength Index) - momentum indicator
+    delta = returns
+    gain = (delta.where(delta > 0, 0)).rolling(window=14, min_periods=1).mean().shift(1)
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14, min_periods=1).mean().shift(1)
+    rs = gain / (loss + 1e-10)  # Avoid division by zero
+    df['rsi'] = 100 - (100 / (1 + rs))
+    df['rsi'] = df['rsi'].fillna(50.0)  # Fill NaN with neutral RSI (50)
+    
+    # Bollinger Bands
+    df['bb_middle'] = df['ma_20']  # Middle band (MA)
+    bb_std = returns.rolling(window=20, min_periods=1).std().shift(1).fillna(0)
+    df['bb_upper'] = df['bb_middle'] + (2 * bb_std * df[price_column])
+    df['bb_lower'] = df['bb_middle'] - (2 * bb_std * df[price_column])
+    df['bb_width'] = (df['bb_upper'] - df['bb_lower']) / (df['bb_middle'] + 1e-10)  # Band width (volatility)
+    df['bb_width'] = df['bb_width'].fillna(0)  # Fill NaN with 0
+    df['bb_position'] = (df[price_column] - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'] + 1e-10)  # Position in band
+    df['bb_position'] = df['bb_position'].fillna(0.5)  # Fill NaN with middle position
+    
+    # Momentum indicators (fill NaN with 0 - no momentum)
+    df['momentum_5'] = (df[price_column] / df[price_column].shift(5) - 1).fillna(0)  # 5-day momentum
+    df['momentum_10'] = (df[price_column] / df[price_column].shift(10) - 1).fillna(0)  # 10-day momentum
+    
+    # Rate of change (fill NaN with 0 - no change)
+    df['roc_5'] = ((df[price_column] - df[price_column].shift(5)) / (df[price_column].shift(5) + 1e-10)).fillna(0)  # 5-day ROC
+    df['roc_10'] = ((df[price_column] - df[price_column].shift(10)) / (df[price_column].shift(10) + 1e-10)).fillna(0)  # 10-day ROC
     
     # Absolute return (for spike detection)
-    df['abs_return'] = df[price_column].pct_change(fill_method=None).abs()
+    df['abs_return'] = returns.abs()
     
     # Shock detection label (extreme price movements over multiple days)
     # A "shock" is defined as a cumulative return over N days that exceeds k standard deviations
