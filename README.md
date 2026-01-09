@@ -58,12 +58,30 @@ This project combines time-series forecasting with news sentiment analysis to pr
      - Plots and visualizations in `results/figures/`
      - Model files (if enabled) in `results/models/`
 
-## Report (PDF)
-Write the report in `project_report.md` and generate `project_report.pdf` (pandoc recommended):
+## Report and Presentation (PDF)
+The project report and presentation are written in LaTeX for professional formatting. To compile to PDF:
 
 ```bash
-pandoc project_report.md -o project_report.pdf --pdf-engine=xelatex --toc --number-sections
+# Navigate to the reports directory
+cd reports/reports
+
+# Compile the report (run twice for references/TOC)
+pdflatex report.tex
+pdflatex report.tex
+
+# Compile the presentation
+pdflatex presentation.tex
+pdflatex presentation.tex
+
+# Clean up auxiliary files
+rm -f *.aux *.log *.out *.toc *.nav *.snm *.vrb
 ```
+
+**Requirements**: `pdflatex` (install via `brew install basictex` on Mac, or `apt-get install texlive-latex-base` on Linux)
+
+The compiled PDFs should be:
+- `report.pdf`: ~8-9 pages with all figures, tables, and detailed methodology/results sections
+- `presentation.pdf`: ~20 slides for project presentation
 
 ## Figures for the report
 All visualizations are saved in `results/figures/`:
@@ -76,22 +94,25 @@ All visualizations are saved in `results/figures/`:
 
 The pipeline supports three prediction modes:
 
-1. **Return Prediction** (default): Predicts next-day return
+1. **Shock Detection** (default): Binary classification of extreme price movements
+   - Detects price "shocks" (multi-day cumulative returns exceeding statistical threshold)
+   - Useful for early warning of rare but impactful price movements
+   - Combines price trends with news sentiment for improved detection
+   - Focus of the final project implementation
+
+2. **Return Prediction**: Predicts next-day return
    - `target_return = price[t+1]/price[t] - 1`
    - Generally works better for capturing news-driven price movements
+   - Attempted but showed poor quality, leading to focus on shock detection
 
-2. **Price Prediction**: Predicts next-day price level
+3. **Price Prediction**: Predicts next-day price level
    - `target_price = price[t+1]`
-
-3. **Shock Detection**: Binary classification of extreme price movements
-   - Detects price "shocks" (returns exceeding 2 standard deviations)
-   - Useful for early warning of rare but impactful price spikes
-   - Combines price trends with news sentiment for improved detection
+   - Attempted but showed poor quality, leading to focus on shock detection
 
 You can switch the target mode in `main.py`:
-- `target_mode = 'return'` (default) - regression
-- `target_mode = 'price'` - regression  
-- `target_mode = 'shock'` - binary classification
+- `target_mode = 'shock'` (default) - binary classification
+- `target_mode = 'return'` - regression
+- `target_mode = 'price'` - regression
 
 ### Project Structure
 
@@ -101,7 +122,7 @@ You can switch the target mode in `main.py`:
 ├── environment.yml              # Conda environment definition
 ├── README.md                    # This file
 ├── PROPOSAL.md                  # Project proposal
-├── project_report.md            # Report source (generate project_report.pdf)
+├── ai_log.md                    # AI usage log
 ├── data/
 │   ├── raw/                      # Raw datasets used by main.py
 │   │   ├── copper/
@@ -117,6 +138,13 @@ You can switch the target mode in `main.py`:
 ├── results/                     # Outputs created by running main.py
 │   ├── figures/                 # All plots and visualizations
 │   └── models/                  # Saved model files (if save_models=True)
+├── reports/                     # LaTeX sources and compiled PDFs
+│   └── reports/
+│       ├── report.tex           # Main project report (IEEE format)
+│       ├── presentation.tex     # Presentation slides (Beamer)
+│       ├── IEEEtran.cls         # IEEE template class file
+│       ├── report.pdf           # Compiled report (generated)
+│       └── presentation.pdf     # Compiled presentation (generated)
 ├── src/
 │   ├── data_loader.py           # Data loading / alignment
 │   ├── features/
