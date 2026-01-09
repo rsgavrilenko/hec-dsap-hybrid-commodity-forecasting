@@ -1,0 +1,529 @@
+\documentclass[aspectratio=169,12pt]{beamer}
+\usetheme{Madrid}
+\usecolortheme{default}
+
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+
+\title{Hybrid Commodity Forecasting with News Data}
+\subtitle{Combining Time-Series Analysis and News Sentiment\\for Copper Price Shock Prediction}
+\author{Roman Gavrilenko}
+\institute{Master in Finance\\HEC Lausanne}
+\date{Fall 2025}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Introduction: Why Copper Matters}
+\begin{itemize}
+    \item \textbf{Third most-consumed industrial metal} globally
+    \item Critical for: infrastructure, renewable energy, electronics
+    \item Price movements impact construction costs, manufacturing, economic growth
+    \item \textbf{Dual nature}: essential commodity + financial asset
+    \item Responds to: supply-demand, geopolitics, speculation, sentiment
+\end{itemize}
+
+\vspace{0.3cm}
+\textbf{Switzerland's Role}: Major commodity trading hub (Glencore, Trafigura)
+
+\vspace{0.3cm}
+\textbf{Challenge}: Traditional time-series models miss news-driven events
+\end{frame}
+
+\begin{frame}{The Problem}
+\begin{columns}
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+    \item \textbf{Traditional models} (ARIMA):
+    \begin{itemize}
+        \item Capture trends and seasonality
+        \item Miss sudden disruptions
+    \end{itemize}
+    
+    \vspace{0.3cm}
+    \item \textbf{News-driven events}:
+    \begin{itemize}
+        \item Mine closures
+        \item Labor strikes
+        \item Trade sanctions
+        \item Supply disruptions
+    \end{itemize}
+\end{itemize}
+\end{column}
+
+\begin{column}{0.5\textwidth}
+\begin{center}
+\includegraphics[width=0.9\textwidth]{results/figures/67c7fa00b8ef2553de820219_copper.mine_.png..png}
+\end{center}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Research Question}
+\begin{center}
+\Large
+\textbf{Does incorporating news sentiment analysis improve forecasting of copper price movements compared to using price data alone?}
+\end{center}
+
+\vspace{0.5cm}
+\begin{itemize}
+    \item \textbf{Hypothesis}: News features capture early warning signals of supply-demand shocks
+    \item \textbf{Approach}: Hybrid ML models combining price + news features
+    \item \textbf{Focus}: Binary classification of extreme price movements (``shocks'')
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Dataset Overview}
+\begin{columns}
+\begin{column}{0.6\textwidth}
+\textbf{Price Data:}
+\begin{itemize}
+    \item LME copper prices (2008-2025)
+    \item 4,542 trading days
+    \item Cash price, 3-month forward, stock levels
+    \item Web-scraped from Westmetall.com
+\end{itemize}
+
+\vspace{0.3cm}
+\textbf{News Data:}
+\begin{itemize}
+    \item 9,448 unique articles
+    \item Sources: Reuters, Mining.com, Bloomberg
+    \item RSS feeds + Google News queries
+    \item Extensive query variations for historical coverage
+\end{itemize}
+\end{column}
+
+\begin{column}{0.4\textwidth}
+\begin{center}
+\includegraphics[width=\textwidth]{results/figures/copper_price_stock_timeseries.png}
+\end{center}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{News Collection Strategy}
+\textbf{Comprehensive Multi-Source Approach:}
+\begin{itemize}
+    \item RSS feeds from financial news providers
+    \item Google News search with keyword combinations
+    \item Direct parsing of mining/commodity websites
+\end{itemize}
+
+\vspace{0.3cm}
+\textbf{Query Variations:}
+\begin{itemize}
+    \item Supply disruptions: ``copper mine strike'', ``production cut'', etc.
+    \item Major mines: Escondida, Collahuasi, Codelco, BHP
+    \item Year-specific queries for historical periods
+    \item Hundreds of unique combinations
+    \item Parallel processing (4-8 workers)
+\end{itemize}
+
+\vspace{0.3cm}
+\textbf{Note}: Despite strategy, 2025 has higher news volume due to recency bias
+\end{frame}
+
+\begin{frame}{News Dataset Statistics}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{results/figures/news_statistics.png}
+\end{center}
+
+\textbf{Key Observations:}
+\begin{itemize}
+    \item \textbf{Source distribution}: Reuters and Mining.com are primary contributors
+    \item \textbf{Temporal coverage}: Increased volume in recent years (2020-2025)
+    \item \textbf{Category breakdown}: Mine/production news most common
+    \item Total: 9,448 unique articles after deduplication
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Examples of Significant News Events}
+\begin{center}
+\includegraphics[width=0.9\textwidth]{results/figures/top_news_events_table.png}
+\end{center}
+
+\textbf{These events occurred near detected price shocks:}
+\begin{itemize}
+    \item Major strikes (Escondida mine strike, 2017)
+    \item Production disruptions (mine closures in Peru, Chile)
+    \item Geopolitical events (trade restrictions, sanctions)
+    \item Demand shifts (China demand announcements, infrastructure spending)
+\end{itemize}
+
+\textbf{Takeaway}: News collection strategy successfully captures early warning signals
+\end{frame}
+
+\begin{frame}{Feature Engineering: Price Features}
+\textbf{40+ Price-Based Features:}
+
+\begin{columns}
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+    \item \textbf{Lagged features}:
+    \begin{itemize}
+        \item Prices (lag1-lag10)
+        \item Returns (1,2,5,7 days)
+        \item Price differences
+    \end{itemize}
+    
+    \item \textbf{Moving averages}:
+    \begin{itemize}
+        \item MA 5, 10, 20, 50 days
+        \item Price-to-MA ratios
+        \item MA crossovers
+    \end{itemize}
+\end{itemize}
+\end{column}
+
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+    \item \textbf{Volatility}:
+    \begin{itemize}
+        \item Rolling std (5,10,20 days)
+        \item Bollinger Bands
+        \item RSI, Momentum, ROC
+    \end{itemize}
+    
+    \item \textbf{Stock-based}:
+    \begin{itemize}
+        \item LME warehouse levels
+        \item Stock changes
+        \item Stock-to-price ratios
+    \end{itemize}
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Feature Engineering: News Features}
+\textbf{News-Based Signals:}
+
+\begin{itemize}
+    \item \textbf{FinBERT Sentiment}:
+    \begin{itemize}
+        \item Pre-trained financial language model
+        \item Scores: negative, neutral, positive, net sentiment
+    \end{itemize}
+    
+    \item \textbf{Heuristic Keywords}:
+    \begin{itemize}
+        \item Supply shocks: mine\_closure, strike\_labor, production\_cut
+        \item Demand: china\_demand, infrastructure\_spending
+        \item 20+ binary features
+    \end{itemize}
+    
+    \item \textbf{Rolling Aggregations}:
+    \begin{itemize}
+        \item Windows: 1,3,5,7,10,14 days
+        \item Stats: mean, sum, max, std
+    \end{itemize}
+    
+    \item \textbf{Source Weighting}: Reuters/Mining.com=5, Bloomberg=4, others=1
+    
+    \item \textbf{Interaction Features}: Price × News (48 interactions)
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Target Variable: Shock Detection}
+\textbf{Definition of ``Price Shock'':}
+
+\begin{equation}
+\text{shock}_t = \mathbb{I}\left(\left|\sum_{i=0}^{1} r_{t+i}\right| > 1.25\sigma_{\text{cum}} \land \text{sign}(r_t) = \text{sign}(r_{t+1})\right)
+\end{equation}
+
+\begin{itemize}
+    \item 2-day cumulative return window
+    \item Threshold: 1.25 standard deviations
+    \item Both days must have returns in same direction
+    \item Filters single-day noise, captures real disruptions
+    \item \textbf{Result}: $\sim$13\% positive class (balanced for ML)
+\end{itemize}
+
+\vspace{0.3cm}
+\textbf{Why Shock Detection?}
+\begin{itemize}
+    \item Regression (price/return) performed poorly (low R²)
+    \item News features better suited for rare, impactful events
+    \item Aligns with literature: semantic signals valuable for shock detection
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Models}
+\textbf{Four Model Families:}
+
+\begin{columns}
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+    \item \textbf{Logistic Regression}:
+    \begin{itemize}
+        \item L2 regularization
+        \item C=0.001 (price-only)
+        \item C=1.0 (hybrid)
+    \end{itemize}
+    
+    \item \textbf{Random Forest}:
+    \begin{itemize}
+        \item 100 trees
+        \item max\_depth=10-14
+    \end{itemize}
+\end{itemize}
+\end{column}
+
+\begin{column}{0.5\textwidth}
+\begin{itemize}
+    \item \textbf{SVM (Support Vector Machine)}:
+    \begin{itemize}
+        \item RBF kernel (non-linear decision boundary)
+        \item Finds optimal separating hyperplane
+        \item Stratified sample (computational limits)
+        \item Good for high-dimensional data
+    \end{itemize}
+    
+    \item \textbf{Gradient Boosting}:
+    \begin{itemize}
+        \item 200 estimators
+        \item Learning rate 0.05
+        \item Early stopping
+    \end{itemize}
+\end{itemize}
+\end{column}
+\end{columns}
+
+\vspace{0.3cm}
+\textbf{Each model trained on}: (1) Price-only features, (2) Hybrid features (price + news)
+\end{frame}
+
+\begin{frame}{Training Procedure: Walk-Forward Validation}
+\textbf{Why Walk-Forward?}
+\begin{itemize}
+    \item Simulates realistic trading: always train on past, test on future
+    \item Avoids lookahead bias (using future data to predict past)
+    \item Tests model robustness across different time periods
+\end{itemize}
+
+\vspace{0.3cm}
+\textbf{5 Expanding Windows:}
+\begin{itemize}
+    \item \textbf{Window 1}: Train 2008-2012, Test 2013-2014
+    \item \textbf{Window 2}: Train 2008-2014, Test 2015-2016
+    \item \textbf{Window 3}: Train 2008-2016, Test 2017-2018
+    \item \textbf{Window 4}: Train 2008-2018, Test 2019-2020
+    \item \textbf{Window 5}: Train 2008-2020, Test 2021-2025
+\end{itemize}
+
+\vspace{0.3cm}
+\textbf{Each window}: Model sees more historical data, tests on unseen future period
+\end{frame}
+
+\begin{frame}{Training Procedure: Model-Specific Steps}
+\textbf{For Each Model and Window:}
+
+\begin{itemize}
+    \item \textbf{Probability calibration}: CalibratedClassifierCV with isotonic regression
+    \begin{itemize}
+        \item Ensures predicted probabilities are well-calibrated
+        \item Critical for threshold tuning
+    \end{itemize}
+    
+    \item \textbf{Threshold tuning}: Optimize F1-score on validation set (20\% of training data)
+    \begin{itemize}
+        \item Search range: 0.001 to 0.5
+        \item Optimal threshold varies by model (0.13 to 0.39 in our results)
+    \end{itemize}
+    
+    \item \textbf{Class imbalance handling}: SMOTE if shock rate < 10\%, otherwise class\_weight='balanced'
+    
+    \item \textbf{Feature selection per window}: Top-15 news features by correlation with target
+    \begin{itemize}
+        \item Adapts to changing market regimes
+        \item Features relevant in 2008 may differ from 2020
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Results Overview}
+\begin{center}
+\includegraphics[width=0.75\textwidth]{results/figures/shock_detection_results.png}
+\end{center}
+
+\textbf{Key Observations:}
+\begin{itemize}
+    \item ROC curves show clear separation between hybrid and price-only models
+    \item Tree-based models (Random Forest, Gradient Boosting) benefit most from news features
+    \item Confusion matrices reveal trade-offs between precision and recall
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Results: Key Metrics}
+\textbf{Best Performance by Metric:}
+
+\begin{itemize}
+    \item \textbf{AUC (Area Under ROC Curve)}:
+    \begin{itemize}
+        \item Random Forest (Hybrid): \textbf{0.73} (vs 0.69 price-only)
+        \item Gradient Boosting (Hybrid): \textbf{0.72} (vs 0.64 price-only)
+        \item News features provide 5.8-12.5\% improvement for tree models
+    \end{itemize}
+    
+    \item \textbf{F1-Score and PR-AUC}:
+    \begin{itemize}
+        \item Logistic Regression (Price-Only): F1 \textbf{0.34}, PR-AUC \textbf{0.29}
+        \item Best hybrid: Gradient Boosting (Hybrid): F1 0.32, PR-AUC 0.26
+    \end{itemize}
+    
+    \item \textbf{Key Finding}: Tree-based hybrid models excel on AUC; regularized linear models excel on F1/PR-AUC
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Feature Importance}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{results/figures/feature_importance_shock.png}
+\end{center}
+
+\textbf{Top Features for Gradient Boosting (Hybrid):}
+\begin{itemize}
+    \item Price features dominate (technical indicators: volatility, RSI, moving averages)
+    \item \textbf{News sentiment ranks 8th}: news\_finbert\_neg (negative sentiment)
+    \item Supply-side heuristics (mine\_closure, strike\_labor) contribute significantly
+    \item Interaction features (price × news) appear in top 20
+\end{itemize}
+
+\textbf{Interpretation}: News features provide complementary signal, but price features remain primary drivers
+\end{frame}
+
+\begin{frame}{Visualization: Price with Predictions}
+\begin{center}
+\includegraphics[width=0.85\textwidth]{results/figures/price_with_shocks.png}
+\end{center}
+
+\textbf{Red lines}: Actual shock days (detected by our definition)\\
+\textbf{Green markers}: Correctly predicted shocks (Gradient Boosting Hybrid)
+
+\vspace{0.2cm}
+\textbf{Observations}: Model captures some shocks, particularly during high volatility periods and supply disruptions
+\end{frame}
+
+\begin{frame}{Why Do Hybrid Models Outperform?}
+\textbf{(For Tree-Based Methods)}
+
+\begin{enumerate}
+    \item \textbf{Capture supply-demand fundamentals}:
+    \begin{itemize}
+        \item News provides early warning (before price reacts)
+        \item Mine closures, strikes captured by heuristics
+        \item Price features can only react \textit{after} shock occurs
+    \end{itemize}
+    
+    \item \textbf{Sentiment as leading indicator}:
+    \begin{itemize}
+        \item FinBERT captures market psychology and expectations
+        \item Negative sentiment around supply disruptions often precedes price spikes
+    \end{itemize}
+    
+    \item \textbf{Non-linear interactions}:
+    \begin{itemize}
+        \item Tree models learn complex price × news interactions
+        \item Linear models miss these patterns
+    \end{itemize}
+    
+    \item \textbf{Feature diversity}: 40+ price + 50+ news features provide rich representation space
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Why LR (Price-Only) Achieves High F1?}
+\textbf{Counter-Intuitive Finding Explained:}
+
+\begin{itemize}
+    \item \textbf{Data quality hypothesis}: News features may still contain significant noise
+    \begin{itemize}
+        \item Despite source weighting and filtering, news signal-to-noise ratio may be moderate
+        \item Many news articles may be tangential or not immediately actionable
+        \item Historical news coverage (2008-2015) is sparser, potentially noisier
+    \end{itemize}
+    
+    \item \textbf{Regularization advantage}:
+    \begin{itemize}
+        \item Strong L2 regularization (C=0.001) prevents overfitting to noise
+        \item Hybrid models may overfit to noisy news features
+        \item Simple, well-regularized linear model generalizes better when data is noisy
+    \end{itemize}
+    
+    \item \textbf{High recall strategy}: Logistic Regression (Price-Only) achieves recall of 0.66
+    \begin{itemize}
+        \item Casts wide net, captures more true positives
+        \item Benefits F1-score in imbalanced settings
+    \end{itemize}
+    
+    \item \textbf{Takeaway}: When news data is noisy, simpler regularized models may outperform complex hybrid models
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Limitations}
+\begin{itemize}
+    \item \textbf{Data coverage}: Historical period (2008-2015) sparser than recent years
+    
+    \item \textbf{Shock definition}: 1.25σ threshold somewhat arbitrary; different thresholds yield different results
+    
+    \item \textbf{Lookahead bias}: Time-of-day cutoffs help, but timestamp accuracy varies
+    
+    \item \textbf{Model assumptions}: Ensemble methods assume historical patterns continue; regime changes may degrade performance
+    
+    \item \textbf{Computational constraints}: FinBERT inference expensive; requires GPU/caching in production
+    
+    \item \textbf{Generalization}: Trained on copper; feature importance differs for other commodities
+    
+    \item \textbf{Metric trade-offs}: AUC vs F1 vs PR-AUC significantly affects model ranking
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Conclusion}
+\textbf{Key Findings:}
+
+\begin{enumerate}
+    \item \textbf{Tree-based hybrid models} outperform on AUC:
+    \begin{itemize}
+        \item Random Forest (Hybrid): AUC 0.73 vs 0.69 (5.8\% improvement)
+        \item Gradient Boosting (Hybrid): AUC 0.72 vs 0.64 (12.5\% improvement)
+    \end{itemize}
+    
+    \item \textbf{Logistic Regression (Price-Only)} achieves highest F1 (0.34) and PR-AUC (0.29)
+    \begin{itemize}
+        \item Likely due to regularization preventing overfitting to noisy news features
+    \end{itemize}
+    
+    \item \textbf{News features contribute signal}: Negative sentiment and supply-side heuristics rank in top features
+    
+    \item \textbf{Model choice depends on metric}: Tree models excel on AUC; regularized linear on F1/PR-AUC
+\end{enumerate}
+
+\vspace{0.3cm}
+\textbf{Takeaway}: News features provide moderate but meaningful improvements for tree-based ensemble methods that can capture non-linear interactions, but data quality and noise levels matter significantly.
+\end{frame}
+
+\begin{frame}{Future Work}
+\begin{itemize}
+    \item \textbf{Multi-commodity extension}: Apply to oil, gold, agricultural products
+    
+    \item \textbf{Advanced NLP}: Fine-tune FinBERT on commodity-specific corpus
+    
+    \item \textbf{Real-time deployment}: Low latency pipeline (< 1 minute)
+    
+    \item \textbf{Explainability}: SHAP values, LIME for instance-level explanations
+    
+    \item \textbf{Alternative shock definitions}: Test different thresholds/window sizes
+    
+    \item \textbf{Alternative data}: Social media sentiment, satellite imagery, shipping data
+    
+    \item \textbf{Portfolio optimization}: Extend beyond single-asset prediction
+    
+    \item \textbf{Data quality improvements}: Better news filtering, relevance scoring, noise reduction
+\end{itemize}
+\end{frame}
+
+\end{document}
